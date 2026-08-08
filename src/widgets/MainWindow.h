@@ -38,4 +38,6 @@ private:
     Sidebar   *m_sidebar;
     QStackedWidget *m_contentArea;
     bool m_micaEnabled = false;
+    bool m_maximized = false;
+    QRect m_normalGeometry;
 };
