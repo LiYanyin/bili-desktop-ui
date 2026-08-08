@@ -2,6 +2,9 @@
 
 #include <QWidget>
 #include <QStyle>
+#include <QPointer>
+#include <QVariantAnimation>
+#include <QTimer>
 
 FlowLayout::FlowLayout(QWidget *parent, int margin, int hSpacing, int vSpacing)
     : QLayout(parent), m_hSpace(hSpacing), m_vSpace(vSpacing)
@@ -70,14 +73,56 @@ bool FlowLayout::hasHeightForWidth() const
 
 int FlowLayout::heightForWidth(int width) const
 {
-    int height = doLayout(QRect(0, 0, width, 0), true);
-    return height;
+    return doLayoutCalc(QRect(0, 0, width, 0));
 }
 
 void FlowLayout::setGeometry(const QRect &rect)
 {
     QLayout::setGeometry(rect);
-    doLayout(rect, false);
+    m_animTasks.clear();
+    doLayoutApply(rect);
+    if (!m_animTasks.isEmpty())
+        QTimer::singleShot(100, this, &FlowLayout::runAnimation);
+}
+
+void FlowLayout::runAnimation()
+{
+    auto tasks = m_animTasks;
+    m_animTasks.clear();
+    if (tasks.isEmpty()) return;
+
+    // Flash widgets back to pre-layout positions
+    for (const auto &t : tasks) {
+        if (t.widget) {
+            t.widget->move(t.oldPos);
+            t.widget->resize(t.newSize);
+        }
+    }
+
+    auto *anim = new QVariantAnimation;
+    anim->setDuration(300);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+
+    QObject::connect(anim, &QVariantAnimation::valueChanged, [tasks](const QVariant &v) {
+        float t = v.toFloat();
+        for (const auto &task : tasks) {
+            if (task.widget) {
+                task.widget->move(
+                    task.oldPos.x() + static_cast<int>((task.newPos.x() - task.oldPos.x()) * t),
+                    task.oldPos.y() + static_cast<int>((task.newPos.y() - task.oldPos.y()) * t));
+            }
+        }
+    });
+
+    QObject::connect(anim, &QVariantAnimation::finished, [tasks]() {
+        for (const auto &t : tasks) {
+            if (t.widget) t.widget->move(t.newPos);
+        }
+    });
+
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 QSize FlowLayout::sizeHint() const
@@ -91,45 +136,68 @@ QSize FlowLayout::minimumSize() const
     for (const auto *item : m_itemList) {
         size = size.expandedTo(item->minimumSize());
     }
-
     const QMargins margins = contentsMargins();
     size += QSize(margins.left() + margins.right(), margins.top() + margins.bottom());
     return size;
 }
 
-int FlowLayout::doLayout(const QRect &rect, bool testOnly) const
+int FlowLayout::doLayoutCalc(const QRect &rect) const
 {
     int left, top, right, bottom;
     getContentsMargins(&left, &top, &right, &bottom);
-
     QRect effectiveRect = rect.adjusted(left, top, -right, -bottom);
-    int x = effectiveRect.x();
-    int y = effectiveRect.y();
-    int lineHeight = 0;
-
-    int hSpace = horizontalSpacing();
-    int vSpace = verticalSpacing();
+    int x = effectiveRect.x(), y = effectiveRect.y(), lineHeight = 0;
+    int hSpace = horizontalSpacing(), vSpace = verticalSpacing();
 
     for (auto *item : m_itemList) {
-        QSize itemSize = item->sizeHint();
-
-        int nextX = x + itemSize.width() + hSpace;
-        // Wrap to next line if item exceeds available width
+        QSize sz = item->sizeHint();
+        int nextX = x + sz.width() + hSpace;
         if (nextX - hSpace > effectiveRect.right() && lineHeight > 0) {
-            x = effectiveRect.x();
-            y = y + lineHeight + vSpace;
-            nextX = x + itemSize.width() + hSpace;
-            lineHeight = 0;
+            x = effectiveRect.x(); y = y + lineHeight + vSpace;
+            nextX = x + sz.width() + hSpace; lineHeight = 0;
+        }
+        x = nextX;
+        lineHeight = qMax(lineHeight, sz.height());
+    }
+    return y + lineHeight - rect.y() + bottom;
+}
+
+int FlowLayout::doLayoutApply(const QRect &rect)
+{
+    int left, top, right, bottom;
+    getContentsMargins(&left, &top, &right, &bottom);
+    QRect effectiveRect = rect.adjusted(left, top, -right, -bottom);
+    int x = effectiveRect.x(), y = effectiveRect.y(), lineHeight = 0;
+    int hSpace = horizontalSpacing(), vSpace = verticalSpacing();
+
+    for (auto *item : m_itemList) {
+        QSize sz = item->sizeHint();
+        int nextX = x + sz.width() + hSpace;
+        if (nextX - hSpace > effectiveRect.right() && lineHeight > 0) {
+            x = effectiveRect.x(); y = y + lineHeight + vSpace;
+            nextX = x + sz.width() + hSpace; lineHeight = 0;
         }
 
-        if (!testOnly) {
-            item->setGeometry(QRect(QPoint(x, y), itemSize));
+        QWidget *w = item->widget();
+        QRect target(QPoint(x, y), sz);
+        if (w) {
+            QPoint oldPos = w->pos();
+            w->setGeometry(target);
+            if (oldPos != target.topLeft()) {
+                AnimTask t;
+                t.widget = w;
+                t.oldPos = oldPos;
+                t.newPos = target.topLeft();
+                t.newSize = target.size();
+                m_animTasks.append(t);
+            }
+        } else {
+            item->setGeometry(target);
         }
 
         x = nextX;
-        lineHeight = qMax(lineHeight, itemSize.height());
+        lineHeight = qMax(lineHeight, sz.height());
     }
-
     return y + lineHeight - rect.y() + bottom;
 }
 

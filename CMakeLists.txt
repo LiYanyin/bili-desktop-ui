@@ -24,6 +24,8 @@ set(SOURCES
     src/widgets/VideoCard.cpp
     src/widgets/VideoDataLoader.h
     src/widgets/VideoDataLoader.cpp
+    src/widgets/CardGridView.h
+    src/widgets/CardGridView.cpp
 )
 
 add_executable(bili-desktop-ui WIN32 ${SOURCES})
@@ -41,5 +43,5 @@ target_link_libraries(bili-desktop-ui PRIVATE Qt6::Widgets)
 
 # Windows-specific: link dwmapi for Mica effect
 if(WIN32)
-    target_link_libraries(bili-desktop-ui PRIVATE dwmapi)
+    target_link_libraries(bili-desktop-ui PRIVATE dwmapi winmm)
 endif()

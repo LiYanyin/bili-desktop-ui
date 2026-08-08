@@ -2,8 +2,6 @@
 
 #include <QApplication>
 #include <QMouseEvent>
-#include <QDebug>
-#include <QStyle>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -23,7 +21,6 @@ void TitleBar::setupUi()
     layout->setContentsMargins(8, 0, 0, 0);
     layout->setSpacing(0);
 
-    // Left side: icon + title
     m_iconLabel = new QLabel(this);
     m_iconLabel->setFixedSize(20, 20);
     m_iconLabel->setScaledContents(true);
@@ -39,24 +36,22 @@ void TitleBar::setupUi()
     layout->addWidget(m_titleLabel);
     layout->addStretch();
 
-    // Right side: window control buttons
-    m_minimizeBtn = new QPushButton(this);
+    // Use Segoe MDL2 Assets for native Windows 11 titlebar icons
+    // ChromeMinimize:   ChromeMaximize:   ChromeRestore:   ChromeClose: 
+    m_minimizeBtn = new QPushButton(QChar(0xE921), this);
     m_minimizeBtn->setFixedSize(46, 32);
-    m_minimizeBtn->setText("─");  // ─
 
-    m_maximizeBtn = new QPushButton(this);
+    m_maximizeBtn = new QPushButton(QChar(0xE922), this);
     m_maximizeBtn->setFixedSize(46, 32);
-    m_maximizeBtn->setText("□");  // □
 
-    m_closeBtn = new QPushButton(this);
+    m_closeBtn = new QPushButton(QChar(0xE8BB), this);
     m_closeBtn->setFixedSize(46, 32);
-    m_closeBtn->setText("✕");  // ✕
 
     layout->addWidget(m_minimizeBtn);
     layout->addWidget(m_maximizeBtn);
     layout->addWidget(m_closeBtn);
 
-    // Use lambda connections for reliability
+    // Window control button actions via Windows API for reliability
     connect(m_minimizeBtn, &QPushButton::clicked, this, [this]() {
         emit minimizeRequested();
     });
@@ -70,12 +65,13 @@ void TitleBar::setupUi()
 
 void TitleBar::setupStyle()
 {
-    const QString baseBtnStyle = R"(
+    const QString btnStyle = R"(
         QPushButton {
             background: transparent;
             border: none;
             color: #E0E0E0;
-            font-size: 12px;
+            font-family: "Segoe MDL2 Assets";
+            font-size: 10px;
         }
         QPushButton:hover {
             background: rgba(255, 255, 255, 0.1);
@@ -85,13 +81,13 @@ void TitleBar::setupStyle()
         }
     )";
 
-    const QString closeBtnStyle = R"(
+    const QString closeStyle = R"(
         QPushButton {
             background: transparent;
             border: none;
             color: #E0E0E0;
-            font-size: 14px;
-            font-weight: bold;
+            font-family: "Segoe MDL2 Assets";
+            font-size: 10px;
         }
         QPushButton:hover {
             background: #E81123;
@@ -102,47 +98,60 @@ void TitleBar::setupStyle()
         }
     )";
 
-    m_minimizeBtn->setStyleSheet(baseBtnStyle);
-    m_maximizeBtn->setStyleSheet(baseBtnStyle);
-    m_closeBtn->setStyleSheet(closeBtnStyle);
+    m_minimizeBtn->setStyleSheet(btnStyle);
+    m_maximizeBtn->setStyleSheet(btnStyle);
+    m_closeBtn->setStyleSheet(closeStyle);
 }
 
 void TitleBar::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
-        // Check if click is on a button — if so, don't start drag
         QWidget *child = childAt(event->pos());
         if (qobject_cast<QPushButton *>(child)) {
-            QWidget::mousePressEvent(event);
+            // Don't start drag on buttons
             return;
         }
         // Use native Windows dragging
 #ifdef Q_OS_WIN
-        if (auto *win = window()) {
+        if (auto *w = window()) {
             ReleaseCapture();
-            HWND hwnd = reinterpret_cast<HWND>(win->winId());
+            HWND hwnd = reinterpret_cast<HWND>(w->winId());
             SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
         }
 #endif
     }
-    QWidget::mousePressEvent(event);
+}
+
+void TitleBar::mouseMoveEvent(QMouseEvent *event)
+{
+    if (m_dragging) {
+        QPoint delta = event->globalPosition().toPoint() - m_dragStartPos;
+        if (auto *w = window()) {
+            if (!w->isMaximized()) {
+                w->move(w->pos() + delta);
+            }
+            m_dragStartPos = event->globalPosition().toPoint();
+        }
+    }
+}
+
+void TitleBar::mouseReleaseEvent(QMouseEvent *event)
+{
+    m_dragging = false;
 }
 
 void TitleBar::mouseDoubleClickEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
-        // Don't double-click-to-maximize on buttons
         QWidget *child = childAt(event->pos());
-        if (qobject_cast<QPushButton *>(child)) {
-            QWidget::mouseDoubleClickEvent(event);
-            return;
+        if (!qobject_cast<QPushButton *>(child)) {
+            emit maximizeRequested();
         }
-        emit maximizeRequested();
     }
-    QWidget::mouseDoubleClickEvent(event);
 }
 
 void TitleBar::setMaximized(bool maximized)
 {
-    m_maximizeBtn->setText(maximized ? "❐" : "□");  // ❐ : □
+    // ChromeRestore: U+E923  ChromeMaximize: U+E922
+    m_maximizeBtn->setText(maximized ? QChar(0xE923) : QChar(0xE922));
 }

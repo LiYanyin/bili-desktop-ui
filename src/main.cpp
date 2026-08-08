@@ -3,80 +3,39 @@
 #include <QWidget>
 #include <QDir>
 
+#ifdef Q_OS_WIN
+extern "C" {
+    __declspec(dllimport) unsigned int __stdcall timeBeginPeriod(unsigned int);
+    __declspec(dllimport) unsigned int __stdcall timeEndPeriod(unsigned int);
+}
+#endif
+
 #include "widgets/MainWindow.h"
-#include "widgets/FlowLayout.h"
 #include "widgets/VideoCard.h"
 #include "widgets/VideoData.h"
 #include "widgets/VideoDataLoader.h"
-
-// Wrapper widget that delegates heightForWidth to its FlowLayout,
-// so QScrollArea knows the real content height and enables scrolling.
-class FlowContainer : public QWidget
-{
-public:
-    explicit FlowContainer(QWidget *parent = nullptr) : QWidget(parent) {}
-
-    void setFlowLayout(FlowLayout *layout)
-    {
-        m_flow = layout;
-        setLayout(layout);
-    }
-
-    QSize sizeHint() const override
-    {
-        if (m_flow)
-            return m_flow->minimumSize();
-        return QWidget::sizeHint();
-    }
-
-    bool hasHeightForWidth() const override
-    {
-        return m_flow != nullptr;
-    }
-
-    int heightForWidth(int w) const override
-    {
-        if (m_flow)
-            return m_flow->heightForWidth(w);
-        return QWidget::heightForWidth(w);
-    }
-
-private:
-    FlowLayout *m_flow = nullptr;
-};
+#include "widgets/CardGridView.h"
 
 static QWidget *createContentArea()
 {
-    // Load mock video data from JSON
     QString jsonPath = QApplication::applicationDirPath() + "/resources/mock_videos.json";
     QList<VideoData> videoList = VideoDataLoader::loadFromJsonFile(jsonPath);
-
     if (videoList.isEmpty()) {
         jsonPath = QDir::currentPath() + "/resources/mock_videos.json";
         videoList = VideoDataLoader::loadFromJsonFile(jsonPath);
     }
 
-    auto *container = new FlowContainer();
-    auto *flow = new FlowLayout(container);
-    container->setFlowLayout(flow);
-
-    for (const auto &data : videoList) {
-        auto *card = new VideoCard(data);
-        flow->addWidget(card);
-    }
-
-    // Wrap in scroll area
-    auto *scrollArea = new QScrollArea();
-    scrollArea->setWidget(container);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setStyleSheet("QScrollArea { background: transparent; }");
-
-    return scrollArea;
+    auto *grid = new CardGridView();
+    grid->setCards(videoList);
+    return grid;
 }
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_WIN
+    // Increase system timer resolution to 1ms for smooth Qt animations
+    timeBeginPeriod(1);
+#endif
     QApplication app(argc, argv);
 
     app.setStyleSheet(R"(

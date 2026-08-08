@@ -3,6 +3,8 @@
 #include <QLayout>
 #include <QList>
 #include <QStyle>
+#include <QWidget>
+#include <QPointer>
 
 class FlowLayout : public QLayout
 {
@@ -25,11 +27,17 @@ public:
     QSize sizeHint() const override;
     QLayoutItem *takeAt(int index) override;
 
+private slots:
+    void runAnimation();
+
 private:
-    int doLayout(const QRect &rect, bool testOnly) const;
+    int doLayoutCalc(const QRect &rect) const; // const — for heightForWidth
+    int doLayoutApply(const QRect &rect);       // non-const — for setGeometry
     int smartSpacing(QStyle::PixelMetric pm) const;
 
     QList<QLayoutItem *> m_itemList;
     int m_hSpace;
     int m_vSpace;
+    struct AnimTask { QPointer<QWidget> widget; QPoint oldPos; QPoint newPos; QSize newSize; };
+    QList<AnimTask> m_animTasks;
 };

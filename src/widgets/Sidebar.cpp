@@ -72,7 +72,7 @@ void Sidebar::setupStyle()
 {
     setStyleSheet(R"(
         Sidebar {
-            background: #0D0D1A;
+            background: rgba(13, 13, 26, 0.75);
         }
     )");
 
