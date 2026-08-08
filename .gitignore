@@ -1,0 +1,41 @@
+# Build outputs
+build/
+out/
+*.obj
+*.o
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+*.ilk
+*.exp
+*.lib
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+CMakeUserPresets.json
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+.idea/
+
+# Qt
+*.pro.user
+*.pro.user.*
+Makefile
+*.Debug
+*.Release
+
+# OS
+.DS_Store
+Thumbs.db
