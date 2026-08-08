@@ -15,9 +15,25 @@ set(SOURCES
     src/widgets/TitleBar.cpp
     src/widgets/MainWindow.h
     src/widgets/MainWindow.cpp
+    src/widgets/Sidebar.h
+    src/widgets/Sidebar.cpp
+    src/widgets/FlowLayout.h
+    src/widgets/FlowLayout.cpp
+    src/widgets/VideoData.h
+    src/widgets/VideoCard.h
+    src/widgets/VideoCard.cpp
+    src/widgets/VideoDataLoader.h
+    src/widgets/VideoDataLoader.cpp
 )
 
 add_executable(bili-desktop-ui ${SOURCES})
+
+# Copy resources to build directory
+add_custom_command(TARGET bili-desktop-ui POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources
+    $<TARGET_FILE_DIR:bili-desktop-ui>/resources
+)
 
 target_include_directories(bili-desktop-ui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 

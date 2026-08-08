@@ -2,9 +2,11 @@
 
 #include <QWidget>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QStackedWidget>
 
 class TitleBar;
+class Sidebar;
 
 class MainWindow : public QWidget
 {
@@ -33,6 +35,7 @@ private:
     bool isWindows11OrGreater();
 
     TitleBar *m_titleBar;
+    Sidebar   *m_sidebar;
     QStackedWidget *m_contentArea;
     bool m_micaEnabled = false;
 };
