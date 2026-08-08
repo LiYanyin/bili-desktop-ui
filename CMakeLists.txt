@@ -30,6 +30,10 @@ set(SOURCES
     src/network/BiliApi.cpp
     src/network/ImageLoader.h
     src/network/ImageLoader.cpp
+    src/network/BiliLogin.h
+    src/network/BiliLogin.cpp
+    src/widgets/LoginDialog.h
+    src/widgets/LoginDialog.cpp
 )
 
 add_executable(bili-desktop-ui WIN32 ${SOURCES})

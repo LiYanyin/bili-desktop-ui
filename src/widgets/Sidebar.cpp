@@ -32,6 +32,26 @@ void Sidebar::setupUi()
         group->addButton(m_buttons[i], i);
     }
 
+    // Login button at bottom
+    auto *loginBtn = new QPushButton("登录", this);
+    loginBtn->setFixedHeight(44);
+    loginBtn->setCursor(Qt::PointingHandCursor);
+    loginBtn->setStyleSheet(R"(
+        QPushButton {
+            background: rgba(251, 114, 153, 0.2);
+            border: 1px solid rgba(251, 114, 153, 0.3);
+            border-radius: 8px;
+            color: #FB7299;
+            font-size: 14px;
+            margin: 0 12px;
+        }
+        QPushButton:hover {
+            background: rgba(251, 114, 153, 0.35);
+        }
+    )");
+    m_layout->addWidget(loginBtn);
+    connect(loginBtn, &QPushButton::clicked, this, &Sidebar::loginRequested);
+
     m_layout->addStretch();
 
     // Connect button group to handle selection

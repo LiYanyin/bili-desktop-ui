@@ -2,6 +2,7 @@
 #include <QWidget>
 #include <QDir>
 #include <QLabel>
+#include <QDebug>
 #include <QVBoxLayout>
 
 #ifdef Q_OS_WIN
@@ -16,6 +17,7 @@ extern "C" {
 #include "widgets/VideoData.h"
 #include "widgets/VideoDataLoader.h"
 #include "widgets/CardGridView.h"
+#include "widgets/LoginDialog.h"
 #include "network/BiliApi.h"
 
 // Placeholder page with centered message
@@ -84,6 +86,15 @@ int main(int argc, char *argv[])
     window.addPage(3, createPlaceholderPage("历史 — 开发中"));         // 历史
     window.addPage(4, createPlaceholderPage("设置 — 开发中"));         // 设置
     window.switchToPage(0);
+
+    // Login button
+    QObject::connect(&window, &MainWindow::loginRequested, &window, [&window]() {
+        LoginDialog dlg(&window);
+        if (dlg.exec() == QDialog::Accepted) {
+            // Login successful — SESSDATA is available
+            qDebug() << "Logged in with SESSDATA:" << dlg.sessdata().left(10) << "...";
+        }
+    });
 
     window.show();
     return app.exec();

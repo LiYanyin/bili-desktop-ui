@@ -81,6 +81,7 @@ void MainWindow::setupUi()
 
     // Sidebar page switching
     connect(m_sidebar, &Sidebar::itemSelected, this, &MainWindow::switchToPage);
+    connect(m_sidebar, &Sidebar::loginRequested, this, &MainWindow::loginRequested);
 }
 
 void MainWindow::setContentWidget(QWidget *widget)

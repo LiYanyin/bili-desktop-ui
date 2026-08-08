@@ -19,6 +19,9 @@ public:
     void addPage(int index, QWidget *widget);
     void switchToPage(int index);
 
+signals:
+    void loginRequested();
+
 protected:
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
     void changeEvent(QEvent *event) override;

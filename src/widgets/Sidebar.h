@@ -17,6 +17,7 @@ public:
 
 signals:
     void itemSelected(int index);
+    void loginRequested();
 
 private:
     void setupUi();
