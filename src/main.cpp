@@ -1,37 +1,37 @@
 #include <QApplication>
 #include <QScrollArea>
 #include <QWidget>
-#include <QLabel>
 
 #include "widgets/MainWindow.h"
 #include "widgets/FlowLayout.h"
+#include "widgets/VideoCard.h"
+#include "widgets/VideoData.h"
 
-// Temporary test content to verify FlowLayout works
+// Temporary test content with sample VideoCards
 static QWidget *createTestContent()
 {
     auto *container = new QWidget();
     auto *flow = new FlowLayout(container, 16, 12, 12);
 
-    // Create colored test blocks
-    const QList<QColor> colors = {
-        QColor("#FB7299"), QColor("#00A1D6"), QColor("#FCA700"),
-        QColor("#6DC781"), QColor("#9B59B6"), QColor("#E74C3C"),
-        QColor("#3498DB"), QColor("#1ABC9C"), QColor("#E67E22"),
-        QColor("#2ECC71"), QColor("#E91E63"), QColor("#FF5722"),
+    // Sample video data (will be replaced by JSON loading in step 7)
+    const QList<VideoData> samples = {
+        {"【4K】绝美星空延时摄影",          "", "摄影师小王", "", "32.5万", "2天前",  "05:23"},
+        {"2024年度动画混剪",                "", "MAD大神",    "", "89.1万", "1周前",  "03:45"},
+        {"前端开发入门教程第一集",            "", "码农老张",   "", "15.2万", "3天前",  "28:10"},
+        {"【音乐推荐】适合写代码听的电子音乐",  "", "音乐盒子",   "", "45.6万", "5天前",  "62:30"},
+        {"手机摄影技巧：教你拍出大片感",       "", "摄影达人",   "", "28.3万", "1天前",  "12:08"},
+        {"NBA精彩集锦：年度最佳扣篮",         "", "篮球频道",   "", "102.7万","4天前", "08:52"},
+        {"美食探店：隐藏在北京巷子里的宝藏餐厅", "", "吃货日记",  "", "56.9万", "2周前",  "15:20"},
+        {"【深度解析】量子计算到底能做什么？",   "", "科普基地",   "", "21.8万", "6天前",  "18:45"},
+        {"萌宠日常：我家猫主子的沙雕瞬间",      "", "猫奴日记",   "", "67.3万", "3天前",  "06:12"},
+        {"游戏实况：挑战史上最难Boss",          "", "老玩家666",  "", "34.1万", "1天前",  "45:30"},
+        {"【Vlog】一个人的日本旅行",            "", "旅行博主",   "", "78.4万", "2周前",  "22:15"},
+        {"RTX 5090首发评测：性能提升多少？",     "", "硬件评测",   "", "156.2万","5天前", "14:20"},
     };
 
-    for (int i = 0; i < 12; ++i) {
-        auto *block = new QWidget();
-        block->setFixedSize(280, 200);
-        block->setStyleSheet(QString("background: %1; border-radius: 8px;")
-                            .arg(colors[i % colors.size()].name()));
-
-        auto *label = new QLabel(QString("Card %1").arg(i + 1), block);
-        label->setAlignment(Qt::AlignCenter);
-        label->setStyleSheet("color: white; font-size: 18px; font-weight: bold; background: transparent;");
-        label->setGeometry(0, 0, 280, 200);
-
-        flow->addWidget(block);
+    for (const auto &data : samples) {
+        auto *card = new VideoCard(data);
+        flow->addWidget(card);
     }
 
     // Wrap in scroll area
@@ -56,10 +56,8 @@ int main(int argc, char *argv[])
 
     MainWindow window;
     window.setWindowTitle("Bili Desktop UI");
-
-    // Set test content with FlowLayout
     window.setContentWidget(createTestContent());
-
     window.show();
+
     return app.exec();
 }

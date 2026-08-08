@@ -19,6 +19,9 @@ set(SOURCES
     src/widgets/Sidebar.cpp
     src/widgets/FlowLayout.h
     src/widgets/FlowLayout.cpp
+    src/widgets/VideoData.h
+    src/widgets/VideoCard.h
+    src/widgets/VideoCard.cpp
 )
 
 add_executable(bili-desktop-ui ${SOURCES})
