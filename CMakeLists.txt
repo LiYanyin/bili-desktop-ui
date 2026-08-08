@@ -26,7 +26,7 @@ set(SOURCES
     src/widgets/VideoDataLoader.cpp
 )
 
-add_executable(bili-desktop-ui ${SOURCES})
+add_executable(bili-desktop-ui WIN32 ${SOURCES})
 
 # Copy resources to build directory
 add_custom_command(TARGET bili-desktop-ui POST_BUILD
