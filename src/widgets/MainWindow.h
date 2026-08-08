@@ -20,6 +20,8 @@ public:
 protected:
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
     void changeEvent(QEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
     void onMinimize();
@@ -28,8 +30,12 @@ private slots:
 
 private:
     void setupUi();
+    void setupMica();
+    void applyFallbackBackground();
+    bool isWindows11OrGreater();
 
     TitleBar *m_titleBar;
     Sidebar   *m_sidebar;
     QStackedWidget *m_contentArea;
+    bool m_micaEnabled = false;
 };
