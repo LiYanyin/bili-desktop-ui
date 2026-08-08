@@ -17,6 +17,8 @@ set(SOURCES
     src/widgets/MainWindow.cpp
     src/widgets/Sidebar.h
     src/widgets/Sidebar.cpp
+    src/widgets/FlowLayout.h
+    src/widgets/FlowLayout.cpp
 )
 
 add_executable(bili-desktop-ui ${SOURCES})
