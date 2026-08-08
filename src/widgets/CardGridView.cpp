@@ -32,7 +32,8 @@ CardGridView::CardGridView(QWidget *parent)
 
     layout->addWidget(m_view);
 
-    setupScrollToTopButton();
+    // Temporarily disabled for crash debugging
+    // setupScrollToTopButton();
 }
 
 void CardGridView::setupScrollToTopButton()
@@ -106,6 +107,13 @@ void CardGridView::scrollToTop()
 
 void CardGridView::setCards(const QList<VideoData> &cards)
 {
+    // Stop any pending operations to prevent use-after-free
+    if (m_activeAnim) {
+        m_activeAnim->stop();
+        delete m_activeAnim;
+        m_activeAnim = nullptr;
+    }
+
     for (auto &entry : m_entries) {
         m_scene->removeItem(entry.proxy);
         delete entry.proxy;
@@ -120,34 +128,23 @@ void CardGridView::setCards(const QList<VideoData> &cards)
         auto *card = new VideoCard(data);
         card->setFixedSize(CARD_W, card->sizeHint().height());
 
-        // Pre-render card to pixmap for lightweight animation
-        QPixmap snapshot = card->grab();
-
         auto *proxy = m_scene->addWidget(card);
-        proxy->setVisible(false); // hidden by default, shown after animation
+        proxy->setVisible(true);
 
-        auto *pixItem = m_scene->addPixmap(snapshot);
-        pixItem->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
-        pixItem->setVisible(true);
-
-        m_entries.append({card, proxy, pixItem});
+        // No pixmap item — use proxy directly to avoid grab() crash
+        m_entries.append({card, proxy, nullptr});
     }
 }
 
 void CardGridView::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
-    QTimer::singleShot(0, this, [this]() { layoutCards(false); });
+    // Layout happens in resizeEvent
 }
 
 void CardGridView::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-    // Position scroll-to-top button at bottom-right
-    int margin = 20;
-    m_scrollTopBtn->move(width() - m_scrollTopBtn->width() - margin,
-                         height() - m_scrollTopBtn->height() - margin);
-    m_scrollTopBtn->raise();
     layoutCards(true);
 }
 
@@ -161,7 +158,7 @@ void CardGridView::layoutCards(bool animate)
     int cardH = m_entries.first().card->sizeHint().height();
     int rowH = cardH + CARD_GAP;
 
-    struct Target { QGraphicsItem *item; QPointF pos; };
+    struct Target { QGraphicsProxyWidget *proxy; QPointF pos; };
     QList<Target> targets;
 
     for (int i = 0; i < m_entries.size(); ++i) {
@@ -170,15 +167,9 @@ void CardGridView::layoutCards(bool animate)
         int x = MARGIN + col * (CARD_W + CARD_GAP);
         int y = MARGIN + row * rowH;
 
-        // Position the pixmap item (always shown during animation)
-        m_entries[i].pixmapItem->setPixmap(m_entries[i].card->grab());
-        m_entries[i].proxy->setVisible(false);
-        m_entries[i].pixmapItem->setVisible(true);
-        targets.append({m_entries[i].pixmapItem, QPointF(x, y)});
-
-        // Also remember position for the real widget
-        m_entries[i].proxy->setPos(x, y);
+        targets.append({m_entries[i].proxy, QPointF(x, y)});
         m_entries[i].proxy->resize(CARD_W, cardH);
+        m_entries[i].proxy->setVisible(true);
     }
 
     int totalRows = (m_entries.size() + cols - 1) / cols;
@@ -190,12 +181,10 @@ void CardGridView::layoutCards(bool animate)
             m_activeAnim->stop();
             delete m_activeAnim;
         }
-        // Capture current positions as start, targets as end
-        struct Move { QGraphicsPixmapItem *item; QPointF start; QPointF end; };
+        struct Move { QGraphicsProxyWidget *proxy; QPointF start; QPointF end; };
         QList<Move> moves;
         for (const auto &t : targets) {
-            auto *pi = static_cast<QGraphicsPixmapItem *>(t.item);
-            moves.append({pi, pi->pos(), t.pos});
+            moves.append({t.proxy, t.proxy->pos(), t.pos});
         }
         m_activeAnim = new QVariantAnimation(this);
         m_activeAnim->setDuration(250);
@@ -205,25 +194,16 @@ void CardGridView::layoutCards(bool animate)
         QObject::connect(m_activeAnim, &QVariantAnimation::valueChanged, [moves](const QVariant &v) {
             float t = v.toFloat();
             for (const auto &m : moves) {
-                m.item->setPos(m.start.x() + (m.end.x() - m.start.x()) * t,
-                               m.start.y() + (m.end.y() - m.start.y()) * t);
+                m.proxy->setPos(m.start.x() + (m.end.x() - m.start.x()) * t,
+                                m.start.y() + (m.end.y() - m.start.y()) * t);
             }
         });
         QObject::connect(m_activeAnim, &QVariantAnimation::finished, this, [this]() {
-            for (auto &e : m_entries) {
-                e.pixmapItem->setVisible(false);
-                e.proxy->setVisible(true);
-            }
             m_activeAnim = nullptr;
         });
         m_activeAnim->start();
     } else {
         for (const auto &t : targets)
-            t.item->setPos(t.pos);
-        // Show real widgets directly for non-animated layout
-        for (auto &e : m_entries) {
-            e.pixmapItem->setVisible(false);
-            e.proxy->setVisible(true);
-        }
+            t.proxy->setPos(t.pos);
     }
 }
