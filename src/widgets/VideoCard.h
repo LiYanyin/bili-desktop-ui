@@ -2,16 +2,21 @@
 
 #include <QWidget>
 #include <QLabel>
+#include <QPropertyAnimation>
 #include "VideoData.h"
 
 class VideoCard : public QWidget
 {
     Q_OBJECT
+    Q_PROPERTY(float hoverProgress READ hoverProgress WRITE setHoverProgress)
 
 public:
     explicit VideoCard(const VideoData &data, QWidget *parent = nullptr);
 
     void setData(const VideoData &data);
+
+    float hoverProgress() const { return m_hoverProgress; }
+    void setHoverProgress(float progress);
 
 protected:
     void enterEvent(QEnterEvent *event) override;
@@ -20,7 +25,6 @@ protected:
 
 private:
     void setupUi();
-    QString truncateTitle(const QString &title, int maxLines) const;
 
     VideoData m_data;
 
@@ -31,5 +35,6 @@ private:
     QLabel *m_uploaderLabel;
     QLabel *m_statsLabel;
 
-    bool m_hovered = false;
+    float m_hoverProgress = 0.0f;
+    QPropertyAnimation *m_hoverAnimation;
 };
