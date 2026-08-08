@@ -270,5 +270,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 
 void MainWindow::changeEvent(QEvent *event)
 {
+    if (event->type() == QEvent::WindowStateChange) {
+        m_titleBar->setMaximized(isMaximized());
+    }
     QWidget::changeEvent(event);
 }

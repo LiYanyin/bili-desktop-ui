@@ -12,6 +12,9 @@ class TitleBar : public QWidget
 public:
     explicit TitleBar(QWidget *parent = nullptr);
 
+public slots:
+    void setMaximized(bool maximized);
+
 signals:
     void minimizeRequested();
     void maximizeRequested();

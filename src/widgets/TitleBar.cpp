@@ -127,6 +127,11 @@ void TitleBar::mouseReleaseEvent(QMouseEvent *event)
     QWidget::mouseReleaseEvent(event);
 }
 
+void TitleBar::setMaximized(bool maximized)
+{
+    m_maximizeBtn->setText(maximized ? "❐" : "□");
+}
+
 void TitleBar::mouseDoubleClickEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
