@@ -2,7 +2,12 @@
 
 #include <QApplication>
 #include <QMouseEvent>
+#include <QDebug>
 #include <QStyle>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 TitleBar::TitleBar(QWidget *parent)
     : QWidget(parent)
@@ -22,9 +27,8 @@ void TitleBar::setupUi()
     m_iconLabel = new QLabel(this);
     m_iconLabel->setFixedSize(20, 20);
     m_iconLabel->setScaledContents(true);
-    // Use a simple colored square as placeholder icon
     QPixmap iconPix(20, 20);
-    iconPix.fill(QColor("#FB7299")); // B站 pink
+    iconPix.fill(QColor("#FB7299"));
     m_iconLabel->setPixmap(iconPix);
 
     m_titleLabel = new QLabel("Bili Desktop", this);
@@ -36,29 +40,32 @@ void TitleBar::setupUi()
     layout->addStretch();
 
     // Right side: window control buttons
-    // Minimize button
     m_minimizeBtn = new QPushButton(this);
     m_minimizeBtn->setFixedSize(46, 32);
-    m_minimizeBtn->setText("─"); // ─
+    m_minimizeBtn->setText("─");  // ─
 
-    // Maximize button
     m_maximizeBtn = new QPushButton(this);
     m_maximizeBtn->setFixedSize(46, 32);
-    m_maximizeBtn->setText("□"); // □
+    m_maximizeBtn->setText("□");  // □
 
-    // Close button
     m_closeBtn = new QPushButton(this);
     m_closeBtn->setFixedSize(46, 32);
-    m_closeBtn->setText("✕"); // ✕
+    m_closeBtn->setText("✕");  // ✕
 
     layout->addWidget(m_minimizeBtn);
     layout->addWidget(m_maximizeBtn);
     layout->addWidget(m_closeBtn);
 
-    // Connect signals
-    connect(m_minimizeBtn, &QPushButton::clicked, this, &TitleBar::minimizeRequested);
-    connect(m_maximizeBtn, &QPushButton::clicked, this, &TitleBar::maximizeRequested);
-    connect(m_closeBtn, &QPushButton::clicked, this, &TitleBar::closeRequested);
+    // Use lambda connections for reliability
+    connect(m_minimizeBtn, &QPushButton::clicked, this, [this]() {
+        emit minimizeRequested();
+    });
+    connect(m_maximizeBtn, &QPushButton::clicked, this, [this]() {
+        emit maximizeRequested();
+    });
+    connect(m_closeBtn, &QPushButton::clicked, this, [this]() {
+        emit closeRequested();
+    });
 }
 
 void TitleBar::setupStyle()
@@ -103,39 +110,39 @@ void TitleBar::setupStyle()
 void TitleBar::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
-        m_dragging = true;
-        m_dragStartPos = event->globalPosition().toPoint();
+        // Check if click is on a button — if so, don't start drag
+        QWidget *child = childAt(event->pos());
+        if (qobject_cast<QPushButton *>(child)) {
+            QWidget::mousePressEvent(event);
+            return;
+        }
+        // Use native Windows dragging
+#ifdef Q_OS_WIN
+        if (auto *win = window()) {
+            ReleaseCapture();
+            HWND hwnd = reinterpret_cast<HWND>(win->winId());
+            SendMessage(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+        }
+#endif
     }
     QWidget::mousePressEvent(event);
-}
-
-void TitleBar::mouseMoveEvent(QMouseEvent *event)
-{
-    if (m_dragging) {
-        QPoint delta = event->globalPosition().toPoint() - m_dragStartPos;
-        if (window() && !window()->isMaximized()) {
-            window()->move(window()->pos() + delta);
-        }
-        m_dragStartPos = event->globalPosition().toPoint();
-    }
-    QWidget::mouseMoveEvent(event);
-}
-
-void TitleBar::mouseReleaseEvent(QMouseEvent *event)
-{
-    m_dragging = false;
-    QWidget::mouseReleaseEvent(event);
-}
-
-void TitleBar::setMaximized(bool maximized)
-{
-    m_maximizeBtn->setText(maximized ? "❐" : "□");
 }
 
 void TitleBar::mouseDoubleClickEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
+        // Don't double-click-to-maximize on buttons
+        QWidget *child = childAt(event->pos());
+        if (qobject_cast<QPushButton *>(child)) {
+            QWidget::mouseDoubleClickEvent(event);
+            return;
+        }
         emit maximizeRequested();
     }
     QWidget::mouseDoubleClickEvent(event);
+}
+
+void TitleBar::setMaximized(bool maximized)
+{
+    m_maximizeBtn->setText(maximized ? "❐" : "□");  // ❐ : □
 }
