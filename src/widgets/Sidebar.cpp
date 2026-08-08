@@ -2,6 +2,7 @@
 
 #include <QPainter>
 #include <QSpacerItem>
+#include <QButtonGroup>
 
 Sidebar::Sidebar(QWidget *parent)
     : QWidget(parent)
@@ -17,18 +18,28 @@ void Sidebar::setupUi()
     m_layout->setContentsMargins(0, 8, 0, 8);
     m_layout->setSpacing(2);
 
-    // Create navigation buttons
-    // Each with a distinct B站-inspired accent color for the icon placeholder
-    m_buttons.append(createNavButton("首页",     QColor("#FB7299"))); // pink
-    m_buttons.append(createNavButton("动态",     QColor("#00A1D6"))); // blue
-    m_buttons.append(createNavButton("收藏",     QColor("#FCA700"))); // orange
-    m_buttons.append(createNavButton("历史",     QColor("#6DC781"))); // green
-    m_buttons.append(createNavButton("设置",     QColor("#9B9B9B"))); // gray
+    // Use a QButtonGroup for exclusive selection (radio-button behavior)
+    auto *group = new QButtonGroup(this);
+    group->setExclusive(true);
 
-    // Push buttons to the top; leave the rest of space empty
+    m_buttons.append(createNavButton("首页",     QColor("#FB7299")));
+    m_buttons.append(createNavButton("动态",     QColor("#00A1D6")));
+    m_buttons.append(createNavButton("收藏",     QColor("#FCA700")));
+    m_buttons.append(createNavButton("历史",     QColor("#6DC781")));
+    m_buttons.append(createNavButton("设置",     QColor("#9B9B9B")));
+
+    for (int i = 0; i < m_buttons.size(); ++i) {
+        group->addButton(m_buttons[i], i);
+    }
+
     m_layout->addStretch();
 
-    // Select first item by default
+    // Connect button group to handle selection
+    connect(group, &QButtonGroup::idClicked, this, [this](int id) {
+        setCurrentIndex(id);
+        emit itemSelected(id);
+    });
+
     setCurrentIndex(0);
 }
 
@@ -38,7 +49,6 @@ QPushButton *Sidebar::createNavButton(const QString &text, const QColor &iconCol
     btn->setText(text);
     btn->setCheckable(true);
 
-    // Create icon placeholder (small colored circle)
     QPixmap icon(18, 18);
     icon.fill(Qt::transparent);
     QPainter painter(&icon);
@@ -60,14 +70,12 @@ QPushButton *Sidebar::createNavButton(const QString &text, const QColor &iconCol
 
 void Sidebar::setupStyle()
 {
-    // Sidebar background
     setStyleSheet(R"(
         Sidebar {
             background: #0D0D1A;
         }
     )");
 
-    // Individual button style
     const QString btnStyle = R"(
         QPushButton {
             background: transparent;
