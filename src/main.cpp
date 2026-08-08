@@ -1,14 +1,19 @@
 #include <QApplication>
-#include <QWidget>
+#include "widgets/MainWindow.h"
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    QWidget window;
+    // Set application-wide style
+    app.setStyleSheet(R"(
+        QWidget {
+            font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+        }
+    )");
+
+    MainWindow window;
     window.setWindowTitle("Bili Desktop UI");
-    window.resize(1280, 800);
-    window.setMinimumSize(1000, 650);
     window.show();
 
     return app.exec();

@@ -9,9 +9,17 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_PREFIX_PATH "$ENV{Qt6_DIR}" CACHE PATH "Qt6 install prefix")
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
-add_executable(bili-desktop-ui
+set(SOURCES
     src/main.cpp
+    src/widgets/TitleBar.h
+    src/widgets/TitleBar.cpp
+    src/widgets/MainWindow.h
+    src/widgets/MainWindow.cpp
 )
+
+add_executable(bili-desktop-ui ${SOURCES})
+
+target_include_directories(bili-desktop-ui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(bili-desktop-ui PRIVATE Qt6::Widgets)
 
