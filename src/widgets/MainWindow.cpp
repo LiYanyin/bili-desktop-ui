@@ -69,12 +69,26 @@ void MainWindow::setupUi()
     connect(m_titleBar, &TitleBar::minimizeRequested, this, &MainWindow::onMinimize);
     connect(m_titleBar, &TitleBar::maximizeRequested, this, &MainWindow::onMaximize);
     connect(m_titleBar, &TitleBar::closeRequested, this, &MainWindow::onClose);
+
+    // Sidebar page switching
+    connect(m_sidebar, &Sidebar::itemSelected, this, &MainWindow::switchToPage);
 }
 
 void MainWindow::setContentWidget(QWidget *widget)
 {
     m_contentArea->addWidget(widget);
     m_contentArea->setCurrentWidget(widget);
+}
+
+void MainWindow::addPage(int index, QWidget *widget)
+{
+    m_contentArea->insertWidget(index, widget);
+}
+
+void MainWindow::switchToPage(int index)
+{
+    if (index >= 0 && index < m_contentArea->count())
+        m_contentArea->setCurrentIndex(index);
 }
 
 bool MainWindow::isWindows11OrGreater()

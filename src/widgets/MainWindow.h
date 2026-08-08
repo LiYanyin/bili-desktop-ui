@@ -16,6 +16,8 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
 
     void setContentWidget(QWidget *widget);
+    void addPage(int index, QWidget *widget);
+    void switchToPage(int index);
 
 protected:
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
