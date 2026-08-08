@@ -3,14 +3,32 @@
 
 #include <QApplication>
 #include <QScreen>
+#include <QShowEvent>
+#include <QResizeEvent>
 #include <QWindow>
 
-// Windows-specific for native event handling
+// Windows-specific
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
 #include <dwmapi.h>
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+
+#ifndef DWMWA_SYSTEMBACKDROP_TYPE
+#define DWMWA_SYSTEMBACKDROP_TYPE 38
+#endif
+
+#ifndef DWMSBT_MAINWINDOW
+#define DWMSBT_MAINWINDOW 2
+#endif
+
+#ifndef DWMSBT_NONE
+#define DWMSBT_NONE 1
+#endif
+#endif // Q_OS_WIN
 
 MainWindow::MainWindow(QWidget *parent)
     : QWidget(parent)
@@ -18,9 +36,6 @@ MainWindow::MainWindow(QWidget *parent)
     // Frameless window with resize capability
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window | Qt::WindowSystemMenuHint
                    | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
-
-    // Enable translucent background for Mica effect (will be configured later)
-    setAttribute(Qt::WA_TranslucentBackground, false); // Will be true when Mica is set up
 
     setupUi();
 
@@ -40,7 +55,7 @@ void MainWindow::setupUi()
 
     // Content area fills the rest
     m_contentArea = new QStackedWidget(this);
-    m_contentArea->setStyleSheet("background: #1A1A2E;"); // Dark background color
+    // Use semi-transparent background so Mica shows through
     rootLayout->addWidget(m_contentArea, 1);
 
     // Connect title bar signals
@@ -53,6 +68,131 @@ void MainWindow::setContentWidget(QWidget *widget)
 {
     m_contentArea->addWidget(widget);
     m_contentArea->setCurrentWidget(widget);
+}
+
+bool MainWindow::isWindows11OrGreater()
+{
+#ifdef Q_OS_WIN
+    // Use RtlGetVersion to get the real OS version (not affected by manifest)
+    using RtlGetVersionFunc = LONG (WINAPI *)(POSVERSIONINFOEXW);
+    HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    if (!ntdll) return false;
+
+    auto rtlGetVersion = reinterpret_cast<RtlGetVersionFunc>(
+        GetProcAddress(ntdll, "RtlGetVersion"));
+    if (!rtlGetVersion) return false;
+
+    OSVERSIONINFOEXW osvi = {};
+    osvi.dwOSVersionInfoSize = sizeof(osvi);
+    if (rtlGetVersion(reinterpret_cast<POSVERSIONINFOEXW>(&osvi)) != 0)
+        return false;
+
+    // Windows 11: build number >= 22000
+    return osvi.dwMajorVersion >= 10 && osvi.dwBuildNumber >= 22000;
+#else
+    return false;
+#endif
+}
+
+void MainWindow::setupMica()
+{
+#ifdef Q_OS_WIN
+    HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (!hwnd) return;
+
+    if (isWindows11OrGreater()) {
+        // Enable Mica backdrop
+        DWM_SYSTEMBACKDROP_TYPE backdropType = static_cast<DWM_SYSTEMBACKDROP_TYPE>(DWMSBT_MAINWINDOW);
+        HRESULT hr = DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE,
+                                           &backdropType, sizeof(backdropType));
+        if (SUCCEEDED(hr)) {
+            m_micaEnabled = true;
+
+            // Also enable dark mode title bar (for window borders/title)
+            BOOL darkMode = TRUE;
+            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                                  &darkMode, sizeof(darkMode));
+
+            // Use dark-tinted semi-transparent background to show Mica
+            // Mica works as the window background; our content renders on top
+            // So we use a dark semi-transparent color for the content area
+            this->setStyleSheet(R"(
+                MainWindow {
+                    background: rgba(20, 20, 35, 0.72);
+                }
+            )");
+
+            // Title bar blends with Mica
+            m_titleBar->setStyleSheet(R"(
+                TitleBar {
+                    background: rgba(0, 0, 0, 0.35);
+                }
+            )");
+
+            // Content area background — let Mica show through
+            m_contentArea->setStyleSheet(R"(
+                QStackedWidget {
+                    background: transparent;
+                }
+            )");
+
+            return;
+        }
+    }
+
+    // Fallback: Mica not available
+    applyFallbackBackground();
+#else
+    applyFallbackBackground();
+#endif
+}
+
+void MainWindow::applyFallbackBackground()
+{
+    m_micaEnabled = false;
+
+    // Solid dark background when Mica is not available
+    this->setStyleSheet(R"(
+        MainWindow {
+            background: #141423;
+        }
+    )");
+
+    m_titleBar->setStyleSheet(R"(
+        TitleBar {
+            background: #0D0D1A;
+        }
+    )");
+
+    m_contentArea->setStyleSheet(R"(
+        QStackedWidget {
+            background: #1A1A2E;
+        }
+    )");
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    // Set up Mica after the native window is created
+    setupMica();
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    // On Windows 11, Mica can sometimes need a refresh after resize
+#ifdef Q_OS_WIN
+    if (m_micaEnabled) {
+        HWND hwnd = reinterpret_cast<HWND>(winId());
+        if (hwnd) {
+            // Force a redraw of the non-client area to refresh Mica
+            SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                        SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                        SWP_FRAMECHANGED);
+        }
+    }
+#endif
 }
 
 void MainWindow::onMinimize()
@@ -82,11 +222,15 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
         constexpr int borderWidth = 6; // resize border thickness
 
         if (msg->message == WM_NCHITTEST) {
-            // Get cursor position in screen coordinates
+            // When maximized, the whole window acts as client area
+            if (isMaximized()) {
+                *result = HTCLIENT;
+                return true;
+            }
+
             int xPos = GET_X_LPARAM(msg->lParam);
             int yPos = GET_Y_LPARAM(msg->lParam);
 
-            // Convert to window-local coordinates
             QPoint localPos = mapFromGlobal(QPoint(xPos, yPos));
 
             int windowWidth = width();
@@ -97,12 +241,6 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             bool top = localPos.y() < borderWidth;
             bool bottom = localPos.y() > windowHeight - borderWidth;
 
-            if (isMaximized()) {
-                // No resize when maximized
-                *result = HTCLIENT;
-                return true;
-            }
-
             if (top && left)        { *result = HTTOPLEFT;     return true; }
             if (top && right)       { *result = HTTOPRIGHT;    return true; }
             if (bottom && left)     { *result = HTBOTTOMLEFT;  return true; }
@@ -112,9 +250,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             if (left)               { *result = HTLEFT;         return true; }
             if (right)              { *result = HTRIGHT;        return true; }
 
-            // Title bar area (non-client for dragging)
+            // Title bar area acts as caption for dragging
             if (localPos.y() < m_titleBar->height()) {
-                // Check if point is on a button (let Qt handle clicks)
                 *result = HTCAPTION;
                 return true;
             }
@@ -123,10 +260,9 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             return true;
         }
 
-        // Handle window maximize state changes for DPI awareness
+        // Handle window maximize state for DPI awareness
         if (msg->message == WM_GETMINMAXINFO) {
             auto *mmi = reinterpret_cast<MINMAXINFO *>(msg->lParam);
-            // Ensure window doesn't cover taskbar when maximized
             QScreen *screen = QApplication::primaryScreen();
             if (screen) {
                 QRect available = screen->availableGeometry();
@@ -146,8 +282,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 void MainWindow::changeEvent(QEvent *event)
 {
     if (event->type() == QEvent::WindowStateChange) {
-        // Update maximize button icon based on state
-        // (We'll handle this more elegantly later)
+        // The maximize button text could be updated here
+        // (We'll refine button icons later)
     }
     QWidget::changeEvent(event);
 }
