@@ -15,25 +15,36 @@ extern "C" {
 #include "widgets/VideoData.h"
 #include "widgets/VideoDataLoader.h"
 #include "widgets/CardGridView.h"
+#include "network/BiliApi.h"
 
 static QWidget *createContentArea()
 {
+    auto *grid = new CardGridView();
+
+    // Load local mock data first as placeholder
     QString jsonPath = QApplication::applicationDirPath() + "/resources/mock_videos.json";
     QList<VideoData> videoList = VideoDataLoader::loadFromJsonFile(jsonPath);
     if (videoList.isEmpty()) {
         jsonPath = QDir::currentPath() + "/resources/mock_videos.json";
         videoList = VideoDataLoader::loadFromJsonFile(jsonPath);
     }
-
-    auto *grid = new CardGridView();
     grid->setCards(videoList);
+
+    // Then fetch real data from Bilibili API
+    auto *api = new BiliApi(grid);
+    QObject::connect(api, &BiliApi::videosReady, grid, [grid](const QList<VideoData> &videos) {
+        if (!videos.isEmpty())
+            grid->setCards(videos);
+    });
+
+    api->fetchPopular(1, 30);
+
     return grid;
 }
 
 int main(int argc, char *argv[])
 {
 #ifdef Q_OS_WIN
-    // Increase system timer resolution to 1ms for smooth Qt animations
     timeBeginPeriod(1);
 #endif
     QApplication app(argc, argv);
@@ -83,7 +94,7 @@ int main(int argc, char *argv[])
     )");
 
     MainWindow window;
-    window.setWindowTitle("Bili Desktop UI");
+    window.setWindowTitle("Bili Desktop");
     window.setContentWidget(createContentArea());
     window.show();
 

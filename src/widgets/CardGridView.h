@@ -6,6 +6,8 @@
 #include <QGraphicsProxyWidget>
 #include <QVariantAnimation>
 #include <QList>
+#include <QPushButton>
+#include <QPropertyAnimation>
 #include "VideoData.h"
 #include "VideoCard.h"
 
@@ -21,19 +23,25 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
 
+private slots:
+    void onScrollChanged(int value);
+    void scrollToTop();
+
 private:
     struct CardEntry {
-        VideoCard *card;              // real widget (kept for hover etc.)
-        QGraphicsProxyWidget *proxy;  // proxy for the real widget
-        QGraphicsPixmapItem *pixmapItem; // prerendered snapshot for animation
+        VideoCard *card;
+        QGraphicsProxyWidget *proxy;
+        QGraphicsPixmapItem *pixmapItem;
     };
     void layoutCards(bool animate);
-    void showPixmaps();
-    void showWidgets();
+    void setupScrollToTopButton();
 
     QGraphicsView *m_view;
     QGraphicsScene *m_scene;
     QList<CardEntry> m_entries;
     QVariantAnimation *m_activeAnim = nullptr;
     bool m_showingPixmaps = false;
+
+    QPushButton *m_scrollTopBtn;
+    QPropertyAnimation *m_fadeAnim;
 };
