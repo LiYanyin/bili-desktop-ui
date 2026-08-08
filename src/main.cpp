@@ -9,6 +9,42 @@
 #include "widgets/VideoData.h"
 #include "widgets/VideoDataLoader.h"
 
+// Wrapper widget that delegates heightForWidth to its FlowLayout,
+// so QScrollArea knows the real content height and enables scrolling.
+class FlowContainer : public QWidget
+{
+public:
+    explicit FlowContainer(QWidget *parent = nullptr) : QWidget(parent) {}
+
+    void setFlowLayout(FlowLayout *layout)
+    {
+        m_flow = layout;
+        setLayout(layout);
+    }
+
+    QSize sizeHint() const override
+    {
+        if (m_flow)
+            return m_flow->minimumSize();
+        return QWidget::sizeHint();
+    }
+
+    bool hasHeightForWidth() const override
+    {
+        return m_flow != nullptr;
+    }
+
+    int heightForWidth(int w) const override
+    {
+        if (m_flow)
+            return m_flow->heightForWidth(w);
+        return QWidget::heightForWidth(w);
+    }
+
+private:
+    FlowLayout *m_flow = nullptr;
+};
+
 static QWidget *createContentArea()
 {
     // Load mock video data from JSON
@@ -16,13 +52,13 @@ static QWidget *createContentArea()
     QList<VideoData> videoList = VideoDataLoader::loadFromJsonFile(jsonPath);
 
     if (videoList.isEmpty()) {
-        // Fallback: try relative path from source
         jsonPath = QDir::currentPath() + "/resources/mock_videos.json";
         videoList = VideoDataLoader::loadFromJsonFile(jsonPath);
     }
 
-    auto *container = new QWidget();
-    auto *flow = new FlowLayout(container, 16, 12, 12);
+    auto *container = new FlowContainer();
+    auto *flow = new FlowLayout(container);
+    container->setFlowLayout(flow);
 
     for (const auto &data : videoList) {
         auto *card = new VideoCard(data);
@@ -47,7 +83,6 @@ int main(int argc, char *argv[])
         QWidget {
             font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
         }
-        /* Dark scrollbar */
         QScrollBar:vertical {
             background: transparent;
             width: 8px;

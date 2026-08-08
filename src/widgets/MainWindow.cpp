@@ -3,6 +3,7 @@
 #include "Sidebar.h"
 
 #include <QApplication>
+#include <QPushButton>
 #include <QScreen>
 #include <QShowEvent>
 #include <QResizeEvent>
@@ -242,6 +243,13 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             if (right)              { *result = HTRIGHT;        return true; }
 
             if (localPos.y() < m_titleBar->height()) {
+                // Check if cursor is over a child button — if so, let Qt handle it
+                QPoint titleBarPos = m_titleBar->mapFromParent(localPos);
+                QWidget *child = m_titleBar->childAt(titleBarPos);
+                if (qobject_cast<QPushButton *>(child)) {
+                    *result = HTCLIENT;
+                    return true;
+                }
                 *result = HTCAPTION;
                 return true;
             }
