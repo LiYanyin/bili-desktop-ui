@@ -34,13 +34,22 @@
 MainWindow::MainWindow(QWidget *parent)
     : QWidget(parent)
 {
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Window | Qt::WindowSystemMenuHint
+    // Don't use Qt::FramelessWindowHint — it breaks child widget mouse events.
+    // Instead, we strip WS_CAPTION via Windows API in showEvent().
+    setWindowFlags(Qt::Window | Qt::WindowSystemMenuHint
                    | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
+
+    // Enable translucent background for Mica effect.
+    // Combined with DwmExtendFrameIntoClientArea in showEvent, this lets
+    // the Windows Mica material show through our semi-transparent overlay.
+    setAttribute(Qt::WA_TranslucentBackground, true);
 
     setupUi();
 
-    setMinimumSize(1000, 650);
-    resize(1280, 800);
+    // Fixed window — 3 columns (300*3 + 12*2 + 32 + 200 = 1156)
+    // Fullscreen → 5+ columns depending on screen
+    setMinimumSize(1160, 720);
+    resize(1160, 780);
 }
 
 void MainWindow::setupUi()
@@ -130,15 +139,16 @@ void MainWindow::setupMica()
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
                                   &darkMode, sizeof(darkMode));
 
+            // Light overlay so the Mica material is clearly visible
             this->setStyleSheet(R"(
                 MainWindow {
-                    background: rgba(20, 20, 35, 0.72);
+                    background: rgba(18, 18, 28, 0.50);
                 }
             )");
 
             m_titleBar->setStyleSheet(R"(
                 TitleBar {
-                    background: rgba(0, 0, 0, 0.35);
+                    background: rgba(0, 0, 0, 0.15);
                 }
             )");
 
@@ -164,19 +174,19 @@ void MainWindow::applyFallbackBackground()
 
     this->setStyleSheet(R"(
         MainWindow {
-            background: #141423;
+            background: #1A1A28;
         }
     )");
 
     m_titleBar->setStyleSheet(R"(
         TitleBar {
-            background: #0D0D1A;
+            background: #0F0F1A;
         }
     )");
 
     m_contentArea->setStyleSheet(R"(
         QStackedWidget {
-            background: #1A1A2E;
+            background: #1E1E30;
         }
     )");
 }
@@ -184,6 +194,25 @@ void MainWindow::applyFallbackBackground()
 void MainWindow::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
+
+#ifdef Q_OS_WIN
+    HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (hwnd) {
+        // Strip Windows title bar. No WS_THICKFRAME = fixed size, no resize border.
+        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+        style &= ~(WS_CAPTION | WS_THICKFRAME);
+        style |= WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU;
+        SetWindowLongPtr(hwnd, GWL_STYLE, style);
+
+        // Extend DWM frame into entire client area so Mica shows through
+        MARGINS margins = {-1, -1, -1, -1};
+        DwmExtendFrameIntoClientArea(hwnd, &margins);
+
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                     SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+    }
+#endif
+
     setupMica();
 }
 
@@ -209,10 +238,17 @@ void MainWindow::onMinimize()
 
 void MainWindow::onMaximize()
 {
-    if (isMaximized()) {
-        showNormal();
+    if (m_maximized) {
+        m_maximized = false;
+        setGeometry(m_normalGeometry);
+        m_titleBar->setMaximized(false);
     } else {
-        showMaximized();
+        m_normalGeometry = geometry();
+        m_maximized = true;
+        QScreen *screen = QApplication::primaryScreen();
+        if (screen)
+            setGeometry(screen->availableGeometry());
+        m_titleBar->setMaximized(true);
     }
 }
 
@@ -221,65 +257,11 @@ void MainWindow::onClose()
     close();
 }
 
+
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
-#ifdef Q_OS_WIN
-    if (eventType == "windows_generic_MSG") {
-        auto *msg = static_cast<MSG *>(message);
-        constexpr int borderWidth = 6;
-
-        if (msg->message == WM_NCHITTEST) {
-            if (isMaximized()) {
-                *result = HTCLIENT;
-                return true;
-            }
-
-            int xPos = GET_X_LPARAM(msg->lParam);
-            int yPos = GET_Y_LPARAM(msg->lParam);
-            QPoint localPos = mapFromGlobal(QPoint(xPos, yPos));
-
-            int w = width();
-            int h = height();
-
-            bool left = localPos.x() < borderWidth;
-            bool right = localPos.x() > w - borderWidth;
-            bool top = localPos.y() < borderWidth;
-            bool bottom = localPos.y() > h - borderWidth;
-
-            if (top && left)        { *result = HTTOPLEFT;     return true; }
-            if (top && right)       { *result = HTTOPRIGHT;    return true; }
-            if (bottom && left)     { *result = HTBOTTOMLEFT;  return true; }
-            if (bottom && right)    { *result = HTBOTTOMRIGHT; return true; }
-            if (top)                { *result = HTTOP;          return true; }
-            if (bottom)             { *result = HTBOTTOM;       return true; }
-            if (left)               { *result = HTLEFT;         return true; }
-            if (right)              { *result = HTRIGHT;        return true; }
-
-            if (localPos.y() < m_titleBar->height()) {
-                *result = HTCLIENT;
-                return true;
-            }
-
-            *result = HTCLIENT;
-            return true;
-        }
-
-        if (msg->message == WM_GETMINMAXINFO) {
-            auto *mmi = reinterpret_cast<MINMAXINFO *>(msg->lParam);
-            QScreen *screen = QApplication::primaryScreen();
-            if (screen) {
-                QRect avail = screen->availableGeometry();
-                mmi->ptMaxPosition.x = avail.x();
-                mmi->ptMaxPosition.y = avail.y();
-                mmi->ptMaxSize.x = avail.width();
-                mmi->ptMaxSize.y = avail.height();
-            }
-            *result = 0;
-            return true;
-        }
-    }
-#endif
-    return QWidget::nativeEvent(eventType, message, result);
+    Q_UNUSED(eventType); Q_UNUSED(message); Q_UNUSED(result);
+    return false;
 }
 
 void MainWindow::changeEvent(QEvent *event)

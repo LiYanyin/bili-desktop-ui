@@ -6,8 +6,8 @@
 #include <QEnterEvent>
 #include <QGraphicsDropShadowEffect>
 
-static constexpr int CARD_WIDTH = 300;
-static constexpr int COVER_HEIGHT = 169; // 16:9
+static constexpr int CARD_WIDTH = 280;
+static constexpr int COVER_HEIGHT = 158; // 16:9 (280*9/16)
 static constexpr float SCALE_AMOUNT = 1.04f;
 
 VideoCard::VideoCard(const VideoData &data, QWidget *parent)
@@ -217,7 +217,7 @@ void VideoCard::paintEvent(QPaintEvent *event)
     }
 
     // ── Card body ──
-    p.setBrush(QColor("#1E1E30"));
+    p.setBrush(QColor(30, 30, 48, 180));
     p.setPen(QPen(QColor(255, 255, 255, static_cast<int>(12 + 8 * m_hoverProgress)), 1));
     p.drawRoundedRect(scaledRect, 10, 10);
 }

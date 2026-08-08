@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 
 # Qt 6 (on F drive to save C drive space)
 set(CMAKE_PREFIX_PATH "F:/Qt/6.8.2/msvc2022_64" CACHE PATH "Qt6 install prefix")
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 
 set(SOURCES
     src/main.cpp
@@ -24,11 +24,14 @@ set(SOURCES
     src/widgets/VideoCard.cpp
     src/widgets/VideoDataLoader.h
     src/widgets/VideoDataLoader.cpp
+    src/widgets/CardGridView.h
+    src/widgets/CardGridView.cpp
+    src/network/BiliApi.h
+    src/network/BiliApi.cpp
 )
 
 add_executable(bili-desktop-ui WIN32 ${SOURCES})
 
-# Copy resources to build directory
 add_custom_command(TARGET bili-desktop-ui POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_CURRENT_SOURCE_DIR}/resources
@@ -37,9 +40,8 @@ add_custom_command(TARGET bili-desktop-ui POST_BUILD
 
 target_include_directories(bili-desktop-ui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-target_link_libraries(bili-desktop-ui PRIVATE Qt6::Widgets)
+target_link_libraries(bili-desktop-ui PRIVATE Qt6::Widgets Qt6::Network)
 
-# Windows-specific: link dwmapi for Mica effect
 if(WIN32)
-    target_link_libraries(bili-desktop-ui PRIVATE dwmapi)
+    target_link_libraries(bili-desktop-ui PRIVATE dwmapi winmm)
 endif()

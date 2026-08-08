@@ -3,80 +3,50 @@
 #include <QWidget>
 #include <QDir>
 
+#ifdef Q_OS_WIN
+extern "C" {
+    __declspec(dllimport) unsigned int __stdcall timeBeginPeriod(unsigned int);
+    __declspec(dllimport) unsigned int __stdcall timeEndPeriod(unsigned int);
+}
+#endif
+
 #include "widgets/MainWindow.h"
-#include "widgets/FlowLayout.h"
 #include "widgets/VideoCard.h"
 #include "widgets/VideoData.h"
 #include "widgets/VideoDataLoader.h"
-
-// Wrapper widget that delegates heightForWidth to its FlowLayout,
-// so QScrollArea knows the real content height and enables scrolling.
-class FlowContainer : public QWidget
-{
-public:
-    explicit FlowContainer(QWidget *parent = nullptr) : QWidget(parent) {}
-
-    void setFlowLayout(FlowLayout *layout)
-    {
-        m_flow = layout;
-        setLayout(layout);
-    }
-
-    QSize sizeHint() const override
-    {
-        if (m_flow)
-            return m_flow->minimumSize();
-        return QWidget::sizeHint();
-    }
-
-    bool hasHeightForWidth() const override
-    {
-        return m_flow != nullptr;
-    }
-
-    int heightForWidth(int w) const override
-    {
-        if (m_flow)
-            return m_flow->heightForWidth(w);
-        return QWidget::heightForWidth(w);
-    }
-
-private:
-    FlowLayout *m_flow = nullptr;
-};
+#include "widgets/CardGridView.h"
+#include "network/BiliApi.h"
 
 static QWidget *createContentArea()
 {
-    // Load mock video data from JSON
+    auto *grid = new CardGridView();
+
+    // Load local mock data first as placeholder
     QString jsonPath = QApplication::applicationDirPath() + "/resources/mock_videos.json";
     QList<VideoData> videoList = VideoDataLoader::loadFromJsonFile(jsonPath);
-
     if (videoList.isEmpty()) {
         jsonPath = QDir::currentPath() + "/resources/mock_videos.json";
         videoList = VideoDataLoader::loadFromJsonFile(jsonPath);
     }
+    grid->setCards(videoList);
 
-    auto *container = new FlowContainer();
-    auto *flow = new FlowLayout(container);
-    container->setFlowLayout(flow);
+    // Then fetch real data from Bilibili API
+    auto *api = new BiliApi(grid);
+    QObject::connect(api, &BiliApi::videosReady, grid, [grid](const QList<VideoData> &videos) {
+        if (!videos.isEmpty())
+            grid->setCards(videos);
+    });
 
-    for (const auto &data : videoList) {
-        auto *card = new VideoCard(data);
-        flow->addWidget(card);
-    }
+    api->fetchPopular(1, 30);
 
-    // Wrap in scroll area
-    auto *scrollArea = new QScrollArea();
-    scrollArea->setWidget(container);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setStyleSheet("QScrollArea { background: transparent; }");
-
-    return scrollArea;
+    return grid;
 }
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_WIN
+    timeBeginPeriod(1);
+#endif
     QApplication app(argc, argv);
 
     app.setStyleSheet(R"(
@@ -124,7 +94,7 @@ int main(int argc, char *argv[])
     )");
 
     MainWindow window;
-    window.setWindowTitle("Bili Desktop UI");
+    window.setWindowTitle("Bili Desktop");
     window.setContentWidget(createContentArea());
     window.show();
 
