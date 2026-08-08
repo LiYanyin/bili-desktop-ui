@@ -3,10 +3,7 @@
 #include <QVBoxLayout>
 #include <QVariantAnimation>
 #include <QScrollBar>
-#include <QGraphicsOpacityEffect>
 #include <QResizeEvent>
-#include <QShowEvent>
-#include <QTimer>
 #include <QPixmap>
 
 static constexpr int CARD_W = 280;
@@ -32,13 +29,12 @@ CardGridView::CardGridView(QWidget *parent)
 
     layout->addWidget(m_view);
 
-    // Temporarily disabled for crash debugging
-    // setupScrollToTopButton();
+    setupScrollToTopButton();
 }
 
 void CardGridView::setupScrollToTopButton()
 {
-    m_scrollTopBtn = new QPushButton(this);
+    m_scrollTopBtn = new QPushButton("▲", this);
     m_scrollTopBtn->setFixedSize(44, 44);
     m_scrollTopBtn->setCursor(Qt::PointingHandCursor);
     m_scrollTopBtn->setToolTip("回到顶部");
@@ -56,43 +52,21 @@ void CardGridView::setupScrollToTopButton()
             color: white;
         }
     )");
-    m_scrollTopBtn->setText("▲");
-
-    // Start hidden
-    auto *opacity = new QGraphicsOpacityEffect(m_scrollTopBtn);
-    opacity->setOpacity(0.0);
-    m_scrollTopBtn->setGraphicsEffect(opacity);
-
-    m_fadeAnim = new QPropertyAnimation(opacity, "opacity", this);
-    m_fadeAnim->setDuration(200);
+    m_scrollTopBtn->hide();
 
     connect(m_scrollTopBtn, &QPushButton::clicked, this, &CardGridView::scrollToTop);
-
-    // Track scroll position
     connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged,
             this, &CardGridView::onScrollChanged);
 }
 
 void CardGridView::onScrollChanged(int value)
 {
-    auto *opacity = static_cast<QGraphicsOpacityEffect *>(m_scrollTopBtn->graphicsEffect());
-    if (!opacity) return;
-
-    bool show = value > 200; // appear after scrolling 200px
-    float target = show ? 1.0f : 0.0f;
-
-    if (qFuzzyCompare(double(opacity->opacity()), double(target))) return;
-
-    m_fadeAnim->stop();
-    m_fadeAnim->setStartValue(opacity->opacity());
-    m_fadeAnim->setEndValue(target);
-    m_fadeAnim->start();
+    m_scrollTopBtn->setVisible(value > 200);
 }
 
 void CardGridView::scrollToTop()
 {
     auto *sb = m_view->verticalScrollBar();
-    // Smooth scroll via animation
     auto *anim = new QVariantAnimation(this);
     anim->setDuration(350);
     anim->setEasingCurve(QEasingCurve::OutCubic);
@@ -107,7 +81,6 @@ void CardGridView::scrollToTop()
 
 void CardGridView::setCards(const QList<VideoData> &cards)
 {
-    // Stop any pending operations to prevent use-after-free
     if (m_activeAnim) {
         m_activeAnim->stop();
         delete m_activeAnim;
@@ -117,34 +90,24 @@ void CardGridView::setCards(const QList<VideoData> &cards)
     for (auto &entry : m_entries) {
         m_scene->removeItem(entry.proxy);
         delete entry.proxy;
-        if (entry.pixmapItem) {
-            m_scene->removeItem(entry.pixmapItem);
-            delete entry.pixmapItem;
-        }
     }
     m_entries.clear();
 
     for (const auto &data : cards) {
         auto *card = new VideoCard(data);
-        card->setFixedSize(CARD_W, card->sizeHint().height());
-
         auto *proxy = m_scene->addWidget(card);
         proxy->setVisible(true);
-
-        // No pixmap item — use proxy directly to avoid grab() crash
-        m_entries.append({card, proxy, nullptr});
+        m_entries.append({card, proxy});
     }
-}
-
-void CardGridView::showEvent(QShowEvent *event)
-{
-    QWidget::showEvent(event);
-    // Layout happens in resizeEvent
 }
 
 void CardGridView::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
+    if (m_scrollTopBtn) {
+        m_scrollTopBtn->move(width() - 64, height() - 64);
+        m_scrollTopBtn->raise();
+    }
     layoutCards(true);
 }
 
@@ -153,6 +116,9 @@ void CardGridView::layoutCards(bool animate)
     if (m_entries.isEmpty()) return;
 
     int viewW = m_view->viewport()->width();
+    if (viewW <= 0) viewW = width();
+    if (viewW <= 0) return;
+
     int usableW = viewW - MARGIN * 2;
     int cols = qMax(1, (usableW + CARD_GAP) / (CARD_W + CARD_GAP));
     int cardH = m_entries.first().card->sizeHint().height();
@@ -169,7 +135,6 @@ void CardGridView::layoutCards(bool animate)
 
         targets.append({m_entries[i].proxy, QPointF(x, y)});
         m_entries[i].proxy->resize(CARD_W, cardH);
-        m_entries[i].proxy->setVisible(true);
     }
 
     int totalRows = (m_entries.size() + cols - 1) / cols;
