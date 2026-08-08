@@ -242,7 +242,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             if (right)              { *result = HTRIGHT;        return true; }
 
             if (localPos.y() < m_titleBar->height()) {
-                *result = HTCAPTION;
+                *result = HTCLIENT;
                 return true;
             }
 
