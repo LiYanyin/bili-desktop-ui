@@ -28,6 +28,8 @@ set(SOURCES
     src/widgets/CardGridView.cpp
     src/network/BiliApi.h
     src/network/BiliApi.cpp
+    src/network/ImageLoader.h
+    src/network/ImageLoader.cpp
 )
 
 add_executable(bili-desktop-ui WIN32 ${SOURCES})

@@ -1,4 +1,5 @@
 #include "VideoCard.h"
+#include "../network/ImageLoader.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -112,24 +113,26 @@ void VideoCard::setData(const VideoData &data)
 {
     m_data = data;
 
-    // Cover placeholder
-    uint hash = qHash(data.title);
-    QColor coverColor = QColor::fromHsl(hash % 360, 180, 100 + (hash % 60));
-    QPixmap coverPix(CARD_WIDTH, COVER_HEIGHT);
+    // Cover: colored placeholder first, then load real image
     {
-        QPainter p(&coverPix);
+        uint hash = qHash(data.title);
+        QColor coverColor = QColor::fromHsl(hash % 360, 180, 100 + (hash % 60));
+        QPixmap placePix(CARD_WIDTH, COVER_HEIGHT);
+        QPainter p(&placePix);
         p.setRenderHint(QPainter::Antialiasing);
         p.setBrush(coverColor);
         p.setPen(Qt::NoPen);
         p.drawRoundedRect(0, 0, CARD_WIDTH, COVER_HEIGHT, 8, 8);
-        p.setBrush(QColor(255, 255, 255, 40));
-        QPolygonF triangle;
-        triangle << QPointF(CARD_WIDTH / 2 - 18, COVER_HEIGHT / 2 - 22)
-                 << QPointF(CARD_WIDTH / 2 - 18, COVER_HEIGHT / 2 + 22)
-                 << QPointF(CARD_WIDTH / 2 + 20, COVER_HEIGHT / 2);
-        p.drawPolygon(triangle);
+        m_coverLabel->setPixmap(placePix);
     }
-    m_coverLabel->setPixmap(coverPix);
+
+    // Async load real cover from B站 CDN
+    QString bvid = data.bvid;
+    ImageLoader::instance()->load(data.coverPath, this,
+        [this, bvid](const QPixmap &pm) {
+            if (m_data.bvid == bvid && !pm.isNull())
+                m_coverLabel->setPixmap(pm);
+        });
 
     // Duration
     m_durationLabel->setText(data.duration);
