@@ -5,8 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-# Qt 6
-set(CMAKE_PREFIX_PATH "$ENV{Qt6_DIR}" CACHE PATH "Qt6 install prefix")
+# Qt 6 (on F drive to save C drive space)
+set(CMAKE_PREFIX_PATH "F:/Qt/6.8.2/msvc2022_64" CACHE PATH "Qt6 install prefix")
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 set(SOURCES
