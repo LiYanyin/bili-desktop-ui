@@ -1,15 +1,14 @@
 #include "MainWindow.h"
 #include "TitleBar.h"
+#include "Sidebar.h"
 
 #include <QApplication>
 #include <QScreen>
-#include <QWindow>
 
 // Windows-specific for native event handling
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
-#include <dwmapi.h>
 #endif
 
 MainWindow::MainWindow(QWidget *parent)
@@ -18,9 +17,6 @@ MainWindow::MainWindow(QWidget *parent)
     // Frameless window with resize capability
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window | Qt::WindowSystemMenuHint
                    | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
-
-    // Enable translucent background for Mica effect (will be configured later)
-    setAttribute(Qt::WA_TranslucentBackground, false); // Will be true when Mica is set up
 
     setupUi();
 
@@ -38,10 +34,21 @@ void MainWindow::setupUi()
     m_titleBar = new TitleBar(this);
     rootLayout->addWidget(m_titleBar);
 
+    // Body: Sidebar + Content
+    auto *bodyLayout = new QHBoxLayout();
+    bodyLayout->setContentsMargins(0, 0, 0, 0);
+    bodyLayout->setSpacing(0);
+
+    // Left sidebar (fixed width 200px, defined in Sidebar)
+    m_sidebar = new Sidebar(this);
+    bodyLayout->addWidget(m_sidebar);
+
     // Content area fills the rest
     m_contentArea = new QStackedWidget(this);
-    m_contentArea->setStyleSheet("background: #1A1A2E;"); // Dark background color
-    rootLayout->addWidget(m_contentArea, 1);
+    m_contentArea->setStyleSheet("background: #1A1A2E;");
+    bodyLayout->addWidget(m_contentArea, 1);
+
+    rootLayout->addLayout(bodyLayout, 1);
 
     // Connect title bar signals
     connect(m_titleBar, &TitleBar::minimizeRequested, this, &MainWindow::onMinimize);
@@ -79,14 +86,17 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 #ifdef Q_OS_WIN
     if (eventType == "windows_generic_MSG") {
         auto *msg = static_cast<MSG *>(message);
-        constexpr int borderWidth = 6; // resize border thickness
+        constexpr int borderWidth = 6;
 
         if (msg->message == WM_NCHITTEST) {
-            // Get cursor position in screen coordinates
+            if (isMaximized()) {
+                *result = HTCLIENT;
+                return true;
+            }
+
             int xPos = GET_X_LPARAM(msg->lParam);
             int yPos = GET_Y_LPARAM(msg->lParam);
 
-            // Convert to window-local coordinates
             QPoint localPos = mapFromGlobal(QPoint(xPos, yPos));
 
             int windowWidth = width();
@@ -97,12 +107,6 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             bool top = localPos.y() < borderWidth;
             bool bottom = localPos.y() > windowHeight - borderWidth;
 
-            if (isMaximized()) {
-                // No resize when maximized
-                *result = HTCLIENT;
-                return true;
-            }
-
             if (top && left)        { *result = HTTOPLEFT;     return true; }
             if (top && right)       { *result = HTTOPRIGHT;    return true; }
             if (bottom && left)     { *result = HTBOTTOMLEFT;  return true; }
@@ -112,9 +116,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             if (left)               { *result = HTLEFT;         return true; }
             if (right)              { *result = HTRIGHT;        return true; }
 
-            // Title bar area (non-client for dragging)
             if (localPos.y() < m_titleBar->height()) {
-                // Check if point is on a button (let Qt handle clicks)
                 *result = HTCAPTION;
                 return true;
             }
@@ -123,10 +125,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
             return true;
         }
 
-        // Handle window maximize state changes for DPI awareness
         if (msg->message == WM_GETMINMAXINFO) {
             auto *mmi = reinterpret_cast<MINMAXINFO *>(msg->lParam);
-            // Ensure window doesn't cover taskbar when maximized
             QScreen *screen = QApplication::primaryScreen();
             if (screen) {
                 QRect available = screen->availableGeometry();
@@ -145,9 +145,5 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 
 void MainWindow::changeEvent(QEvent *event)
 {
-    if (event->type() == QEvent::WindowStateChange) {
-        // Update maximize button icon based on state
-        // (We'll handle this more elegantly later)
-    }
     QWidget::changeEvent(event);
 }

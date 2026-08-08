@@ -2,9 +2,11 @@
 
 #include <QWidget>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QStackedWidget>
 
 class TitleBar;
+class Sidebar;
 
 class MainWindow : public QWidget
 {
@@ -28,5 +30,6 @@ private:
     void setupUi();
 
     TitleBar *m_titleBar;
+    Sidebar   *m_sidebar;
     QStackedWidget *m_contentArea;
 };

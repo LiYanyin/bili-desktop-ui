@@ -15,6 +15,8 @@ set(SOURCES
     src/widgets/TitleBar.cpp
     src/widgets/MainWindow.h
     src/widgets/MainWindow.cpp
+    src/widgets/Sidebar.h
+    src/widgets/Sidebar.cpp
 )
 
 add_executable(bili-desktop-ui ${SOURCES})
