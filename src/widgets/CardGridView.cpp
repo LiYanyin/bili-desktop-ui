@@ -100,6 +100,8 @@ void CardGridView::setCards(const QList<VideoData> &cards)
         proxy->setVisible(true);
         m_entries.append({card, proxy});
     }
+
+    layoutCards(false);
 }
 
 void CardGridView::resizeEvent(QResizeEvent *event)
@@ -118,7 +120,16 @@ void CardGridView::layoutCards(bool animate)
 
     int viewW = m_view->viewport()->width();
     if (viewW <= 0) viewW = width();
-    if (viewW <= 0) return;
+    // Fallback: walk up to find any parent with a known width
+    if (viewW <= 0) {
+        QWidget *p = parentWidget();
+        while (p && viewW <= 0) {
+            viewW = p->width();
+            p = p->parentWidget();
+        }
+    }
+    if (viewW <= 0) viewW = 960; // default: 1160 - 200 sidebar
+    int usableW = viewW - MARGIN * 2;
 
     int usableW = viewW - MARGIN * 2;
     int cols = qMax(1, (usableW + CARD_GAP) / (CARD_W + CARD_GAP));
