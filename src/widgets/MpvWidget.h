@@ -13,6 +13,9 @@ public:
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    void mouseMoveEvent(QMouseEvent *e) override;
+    void mousePressEvent(QMouseEvent *e) override;
+    void mouseReleaseEvent(QMouseEvent *e) override;
 
 private:
     QProcess *m_proc = nullptr;

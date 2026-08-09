@@ -1,12 +1,14 @@
 #include "CardGridView.h"
+#include "PlayerWindow.h"
 
-#include <QStackedLayout>
+#include <QVBoxLayout>
 #include <QVariantAnimation>
 #include <QScrollBar>
 #include <QResizeEvent>
 #include <QPixmap>
 #include <QMouseEvent>
-#include "PlayerWindow.h"
+#include <QDesktopServices>
+#include <QUrl>
 
 static constexpr int CARD_W = 280;
 static constexpr int CARD_GAP = 12;
@@ -15,9 +17,8 @@ static constexpr int MARGIN = 16;
 CardGridView::CardGridView(QWidget *parent)
     : QWidget(parent)
 {
-    // QStackedLayout::StackAll — view + button overlay stacked
-    auto *stack = new QStackedLayout(this);
-    stack->setStackingMode(QStackedLayout::StackAll);
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
 
     m_scene = new QGraphicsScene(this);
     m_view = new QGraphicsView(m_scene, this);
@@ -29,23 +30,15 @@ CardGridView::CardGridView(QWidget *parent)
     m_view->setBackgroundBrush(Qt::transparent);
     m_view->setStyleSheet("QGraphicsView { background: transparent; border: none; }");
     m_view->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    stack->addWidget(m_view);
-
-    // Overlay layer for buttons — transparent to mouse except on buttons
-    m_overlay = new QWidget(this);
-    m_overlay->setAttribute(Qt::WA_TransparentForMouseEvents);
-    m_overlay->setAttribute(Qt::WA_NoSystemBackground);
-    m_overlay->setAttribute(Qt::WA_TranslucentBackground);
-    stack->addWidget(m_overlay);
+    layout->addWidget(m_view);
 
     m_view->viewport()->installEventFilter(this);
 
-    // Refresh button in top-right corner
-    m_refreshBtn = new QPushButton("↻ 刷新", m_overlay);
-    m_refreshBtn->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-    m_refreshBtn->setFixedSize(72, 30);
-    m_refreshBtn->setCursor(Qt::PointingHandCursor);
-    m_refreshBtn->setStyleSheet(R"(
+    // ── Refresh + Scroll buttons as viewport children (proven working) ──
+    auto *refreshBtn = new QPushButton("↻ 刷新", m_view->viewport());
+    refreshBtn->setFixedSize(72, 30);
+    refreshBtn->setCursor(Qt::PointingHandCursor);
+    refreshBtn->setStyleSheet(R"(
         QPushButton {
             background: rgba(251, 114, 153, 0.25);
             border: 1px solid rgba(251, 114, 153, 0.3);
@@ -54,57 +47,27 @@ CardGridView::CardGridView(QWidget *parent)
         }
         QPushButton:hover { background: rgba(251, 114, 153, 0.5); }
     )");
-    connect(m_refreshBtn, &QPushButton::clicked, this, &CardGridView::refreshRequested);
+    connect(refreshBtn, &QPushButton::clicked, this, &CardGridView::refreshRequested);
 
-    setupScrollToTopButton();
-}
-
-void CardGridView::setupScrollToTopButton()
-{
-    m_scrollTopBtn = new QPushButton("▲", m_overlay);
-    m_scrollTopBtn->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-    m_scrollTopBtn->setFixedSize(44, 44);
-    m_scrollTopBtn->setCursor(Qt::PointingHandCursor);
-    m_scrollTopBtn->setToolTip("回到顶部");
-    m_scrollTopBtn->setStyleSheet(R"(
-        QPushButton {
-            background: rgba(30, 30, 50, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 22px;
-            color: #CCCCCC;
-            font-size: 18px;
-        }
-        QPushButton:hover {
-            background: rgba(251, 114, 153, 0.7);
-            border-color: rgba(251, 114, 153, 0.5);
-            color: white;
-        }
+    auto *scrollBtn = new QPushButton("▲", m_view->viewport());
+    scrollBtn->setFixedSize(44, 44);
+    scrollBtn->setCursor(Qt::PointingHandCursor);
+    scrollBtn->setToolTip("回到顶部");
+    scrollBtn->setStyleSheet(R"(
+        QPushButton { background: rgba(30,30,50,0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: 22px; color: #CCC; font-size: 18px; }
+        QPushButton:hover { background: rgba(251,114,153,0.7); border-color: rgba(251,114,153,0.5); color: #fff; }
     )");
-    m_scrollTopBtn->hide();
+    scrollBtn->hide();
+    connect(scrollBtn, &QPushButton::clicked, this, [this]() { m_view->verticalScrollBar()->setValue(0); });
 
-    connect(m_scrollTopBtn, &QPushButton::clicked, this, &CardGridView::scrollToTop);
-    connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged,
-            this, &CardGridView::onScrollChanged);
-}
+    // Store as QWidget* for resize positioning
+    m_refreshBtn2 = refreshBtn;
+    m_scrollBtn2 = scrollBtn;
 
-void CardGridView::onScrollChanged(int value)
-{
-    m_scrollTopBtn->setVisible(value > 200);
-}
-
-void CardGridView::scrollToTop()
-{
-    auto *sb = m_view->verticalScrollBar();
-    auto *anim = new QVariantAnimation(this);
-    anim->setDuration(350);
-    anim->setEasingCurve(QEasingCurve::OutCubic);
-    anim->setStartValue(sb->value());
-    anim->setEndValue(0);
-    connect(anim, &QVariantAnimation::valueChanged, sb, [sb](const QVariant &v) {
-        sb->setValue(v.toInt());
+    connect(m_view->verticalScrollBar(), &QScrollBar::valueChanged, this, [scrollBtn](int v) {
+        if (v > 200) { scrollBtn->show(); scrollBtn->raise(); }
+        else scrollBtn->hide();
     });
-    connect(anim, &QVariantAnimation::finished, anim, &QObject::deleteLater);
-    anim->start();
 }
 
 void CardGridView::setCards(const QList<VideoData> &cards)
@@ -135,14 +98,17 @@ void CardGridView::setCards(const QList<VideoData> &cards)
 void CardGridView::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-    if (m_scrollTopBtn) {
-        m_scrollTopBtn->move(width() - 64, height() - 64);
-        m_scrollTopBtn->raise();
+
+    // Position viewport-child buttons
+    if (m_refreshBtn2) {
+        int vw = m_view->viewport()->width();
+        int vh = m_view->viewport()->height();
+        m_refreshBtn2->move(vw - 84, 8);
+        m_refreshBtn2->raise();
+        m_scrollBtn2->move(vw - 58, vh - 58);
+        m_scrollBtn2->raise();
     }
-    if (m_refreshBtn) {
-        m_refreshBtn->move(width() - 84, 8);
-        m_refreshBtn->raise();
-    }
+
     layoutCards(true);
 }
 
@@ -152,15 +118,8 @@ void CardGridView::layoutCards(bool animate)
 
     int viewW = m_view->viewport()->width();
     if (viewW <= 0) viewW = width();
-    // Fallback: walk up to find any parent with a known width
-    if (viewW <= 0) {
-        QWidget *p = parentWidget();
-        while (p && viewW <= 0) {
-            viewW = p->width();
-            p = p->parentWidget();
-        }
-    }
-    if (viewW <= 0) viewW = 960; // default: 1160 - 200 sidebar
+    if (viewW <= 0) return;
+
     int usableW = viewW - MARGIN * 2;
     int cols = qMax(1, (usableW + CARD_GAP) / (CARD_W + CARD_GAP));
     int cardH = m_entries.first().card->sizeHint().height();
@@ -174,7 +133,6 @@ void CardGridView::layoutCards(bool animate)
         int row = i / cols;
         int x = MARGIN + col * (CARD_W + CARD_GAP);
         int y = MARGIN + row * rowH;
-
         targets.append({m_entries[i].proxy, QPointF(x, y)});
         m_entries[i].proxy->resize(CARD_W, cardH);
     }
@@ -184,26 +142,23 @@ void CardGridView::layoutCards(bool animate)
     m_scene->setSceneRect(0, 0, viewW, qMax(sceneH, 100));
 
     if (animate) {
-        if (m_activeAnim) {
-            m_activeAnim->stop();
-            delete m_activeAnim;
-        }
+        if (m_activeAnim) { m_activeAnim->stop(); delete m_activeAnim; }
         struct Move { QGraphicsProxyWidget *proxy; QPointF start; QPointF end; };
         QList<Move> moves;
-        for (const auto &t : targets) {
+        for (const auto &t : targets)
             moves.append({t.proxy, t.proxy->pos(), t.pos});
-        }
+
         m_activeAnim = new QVariantAnimation(this);
         m_activeAnim->setDuration(250);
         m_activeAnim->setEasingCurve(QEasingCurve::OutCubic);
         m_activeAnim->setStartValue(0.0);
         m_activeAnim->setEndValue(1.0);
+
         QObject::connect(m_activeAnim, &QVariantAnimation::valueChanged, [moves](const QVariant &v) {
             float t = v.toFloat();
-            for (const auto &m : moves) {
+            for (const auto &m : moves)
                 m.proxy->setPos(m.start.x() + (m.end.x() - m.start.x()) * t,
                                 m.start.y() + (m.end.y() - m.start.y()) * t);
-            }
         });
         QObject::connect(m_activeAnim, &QVariantAnimation::finished, this, [this]() {
             m_activeAnim = nullptr;
@@ -223,17 +178,16 @@ bool CardGridView::eventFilter(QObject *obj, QEvent *event)
             QPointF scenePos = m_view->mapToScene(me->pos());
             QGraphicsItem *item = m_scene->itemAt(scenePos, QTransform());
             if (item) {
-                // Walk up to find the QGraphicsProxyWidget
                 while (item && item->type() != QGraphicsProxyWidget::Type)
                     item = item->parentItem();
                 if (auto *pw = dynamic_cast<QGraphicsProxyWidget *>(item)) {
                     if (auto *card = qobject_cast<VideoCard *>(pw->widget())) {
                         QString bvid = card->data().bvid;
                         if (!bvid.isEmpty()) {
-                            auto *pw = new PlayerWindow();
-                            pw->setAttribute(Qt::WA_DeleteOnClose);
-                            pw->play(bvid, card->data().title);
-                            pw->show();
+                            auto *pw2 = new PlayerWindow();
+                            pw2->setAttribute(Qt::WA_DeleteOnClose);
+                            pw2->play(bvid, card->data().title);
+                            pw2->show();
                         }
                     }
                 }
