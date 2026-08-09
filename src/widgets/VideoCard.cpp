@@ -6,6 +6,9 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QEnterEvent>
+#include <QMouseEvent>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QGraphicsDropShadowEffect>
 
 static constexpr int CARD_WIDTH = 280;
@@ -242,4 +245,16 @@ void VideoCard::paintEvent(QPaintEvent *event)
     p.setBrush(QColor(30, 30, 48, 180));
     p.setPen(QPen(QColor(255, 255, 255, static_cast<int>(12 + 8 * m_hoverProgress)), 1));
     p.drawRoundedRect(scaledRect, 10, 10);
+}
+
+void VideoCard::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && rect().contains(event->pos())) {
+        emit clicked();
+        // Open in browser
+        if (!m_data.bvid.isEmpty()) {
+            QDesktopServices::openUrl(QUrl("https://www.bilibili.com/video/" + m_data.bvid));
+        }
+    }
+    QWidget::mouseReleaseEvent(event);
 }

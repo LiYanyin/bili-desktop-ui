@@ -18,10 +18,16 @@ public:
     float hoverProgress() const { return m_hoverProgress; }
     void setHoverProgress(float progress);
 
+    const VideoData &data() const { return m_data; }
+
+signals:
+    void clicked();
+
 protected:
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
     void setupUi();
