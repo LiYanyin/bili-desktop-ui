@@ -116,6 +116,7 @@ void VideoPlayer::launchMpv(const QStringList &urls, const QString &title)
 
     QStringList args;
     args << "--referrer=https://www.bilibili.com/"
+         << "--ytdl-format=bestvideo+bestaudio/best"
          << "--force-window=yes"
          << "--keep-open=yes";
     if (!title.isEmpty())
