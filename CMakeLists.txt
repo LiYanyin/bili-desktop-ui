@@ -34,6 +34,8 @@ set(SOURCES
     src/network/BiliLogin.cpp
     src/widgets/LoginDialog.h
     src/widgets/LoginDialog.cpp
+    src/network/VideoPlayer.h
+    src/network/VideoPlayer.cpp
 )
 
 add_executable(bili-desktop-ui WIN32 ${SOURCES})

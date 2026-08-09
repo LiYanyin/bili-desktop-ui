@@ -6,8 +6,7 @@
 #include <QResizeEvent>
 #include <QPixmap>
 #include <QMouseEvent>
-#include <QDesktopServices>
-#include <QUrl>
+#include "../network/VideoPlayer.h"
 
 static constexpr int CARD_W = 280;
 static constexpr int CARD_GAP = 12;
@@ -202,8 +201,10 @@ bool CardGridView::eventFilter(QObject *obj, QEvent *event)
                 if (auto *pw = dynamic_cast<QGraphicsProxyWidget *>(item)) {
                     if (auto *card = qobject_cast<VideoCard *>(pw->widget())) {
                         QString bvid = card->data().bvid;
-                        if (!bvid.isEmpty())
-                            QDesktopServices::openUrl(QUrl("https://www.bilibili.com/video/" + bvid));
+                        if (!bvid.isEmpty()) {
+                            auto *player = new VideoPlayer(this);
+                            player->play(bvid);
+                        }
                     }
                 }
             }
