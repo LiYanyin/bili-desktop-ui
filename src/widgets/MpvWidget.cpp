@@ -38,11 +38,9 @@ void MpvWidget::play(const QString &bvid, const QString &title)
 
     QStringList args;
     args << "--referrer=https://www.bilibili.com/"
-         << "--force-window=no"    // don't create own window
          << "--keep-open=yes"
-         << "--ytdl-format=bestvideo+bestaudio/best"
-         << "--no-border"
-         << "--ontop=no";
+         << "--osc=yes"
+         << "--ytdl-format=bestvideo+bestaudio/best";
 
     if (!title.isEmpty())
         args << ("--title=" + title);

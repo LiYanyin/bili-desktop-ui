@@ -34,7 +34,7 @@ CardGridView::CardGridView(QWidget *parent)
     m_view->viewport()->installEventFilter(this);
 
     // Refresh button in top-right corner
-    m_refreshBtn = new QPushButton("↻ 刷新", this);
+    m_refreshBtn = new QPushButton("↻ 刷新", m_view);
     m_refreshBtn->setFixedSize(72, 30);
     m_refreshBtn->setCursor(Qt::PointingHandCursor);
     m_refreshBtn->setStyleSheet(R"(
@@ -53,7 +53,7 @@ CardGridView::CardGridView(QWidget *parent)
 
 void CardGridView::setupScrollToTopButton()
 {
-    m_scrollTopBtn = new QPushButton("▲", this);
+    m_scrollTopBtn = new QPushButton("▲", m_view);
     m_scrollTopBtn->setFixedSize(44, 44);
     m_scrollTopBtn->setCursor(Qt::PointingHandCursor);
     m_scrollTopBtn->setToolTip("回到顶部");
