@@ -5,6 +5,9 @@
 #include <QScrollBar>
 #include <QResizeEvent>
 #include <QPixmap>
+#include <QMouseEvent>
+#include <QDesktopServices>
+#include <QUrl>
 
 static constexpr int CARD_W = 280;
 static constexpr int CARD_GAP = 12;
@@ -28,6 +31,8 @@ CardGridView::CardGridView(QWidget *parent)
     m_view->setAlignment(Qt::AlignTop | Qt::AlignLeft);
 
     layout->addWidget(m_view);
+
+    m_view->viewport()->installEventFilter(this);
 
     setupScrollToTopButton();
 }
@@ -181,4 +186,28 @@ void CardGridView::layoutCards(bool animate)
         for (const auto &t : targets)
             t.proxy->setPos(t.pos);
     }
+}
+
+bool CardGridView::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_view->viewport() && event->type() == QEvent::MouseButtonRelease) {
+        auto *me = static_cast<QMouseEvent *>(event);
+        if (me->button() == Qt::LeftButton) {
+            QPointF scenePos = m_view->mapToScene(me->pos());
+            QGraphicsItem *item = m_scene->itemAt(scenePos, QTransform());
+            if (item) {
+                // Walk up to find the QGraphicsProxyWidget
+                while (item && item->type() != QGraphicsProxyWidget::Type)
+                    item = item->parentItem();
+                if (auto *pw = dynamic_cast<QGraphicsProxyWidget *>(item)) {
+                    if (auto *card = qobject_cast<VideoCard *>(pw->widget())) {
+                        QString bvid = card->data().bvid;
+                        if (!bvid.isEmpty())
+                            QDesktopServices::openUrl(QUrl("https://www.bilibili.com/video/" + bvid));
+                    }
+                }
+            }
+        }
+    }
+    return QWidget::eventFilter(obj, event);
 }
