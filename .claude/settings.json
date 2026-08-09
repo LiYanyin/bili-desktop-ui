@@ -1,25 +1,35 @@
 {
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
-      "Bash(cmake:*)",
-      "Bash(cp *)",
-      "Bash(taskkill *)",
-      "Bash(touch *)",
-      "Bash(mkdir *)",
-      "Bash(rm *)",
-      "Bash(du *)",
-      "Bash(export *)",
-      "Bash(find *)",
-      "Bash(git *)",
-      "Bash(cat *)",
-      "Bash(df *)",
-      "Bash(ls *)",
-      "Bash(dir *)",
-      "Bash(sleep *)",
-      "Bash(tasklist *)",
-      "Bash(wmic *)",
-      "Bash(winget *)",
-      "Bash(grep *)"
+      "Bash",
+      "Edit",
+      "Write",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "TaskCreate",
+      "TaskUpdate",
+      "EnterWorktree",
+      "ExitWorktree",
+      "Skill",
+      "Agent",
+      "NotebookEdit",
+      "mcp__*"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(format *)",
+      "Bash(shutdown *)",
+      "Bash(reg *)",
+      "Bash(sc *)",
+      "Bash(netsh *)"
     ]
-  }
+  },
+  "worktree": {
+    "bgIsolation": "none"
+  },
+  "skipDangerousModePermissionPrompt": true
 }

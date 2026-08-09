@@ -95,6 +95,7 @@ void CardGridView::setCards(const QList<VideoData> &cards)
 
     for (const auto &data : cards) {
         auto *card = new VideoCard(data);
+        card->setFixedSize(CARD_W, card->sizeHint().height());
         auto *proxy = m_scene->addWidget(card);
         proxy->setVisible(true);
         m_entries.append({card, proxy});

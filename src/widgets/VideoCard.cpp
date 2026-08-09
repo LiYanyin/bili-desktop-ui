@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPainter>
+#include <QPainterPath>
 #include <QEnterEvent>
 #include <QGraphicsDropShadowEffect>
 
@@ -147,18 +148,36 @@ void VideoCard::setData(const VideoData &data)
     // Uploader
     m_uploaderLabel->setText(data.uploaderName);
 
-    // Avatar
-    QPixmap avaPix(22, 22);
-    avaPix.fill(Qt::transparent);
+    // Avatar: colored placeholder + async load real avatar
     {
+        QPixmap avaPix(22, 22);
+        avaPix.fill(Qt::transparent);
         QPainter p(&avaPix);
         p.setRenderHint(QPainter::Antialiasing);
         uint nameHash = qHash(data.uploaderName);
         p.setBrush(QColor::fromHsl(nameHash % 360, 160, 140));
         p.setPen(Qt::NoPen);
         p.drawEllipse(0, 0, 22, 22);
+        m_avatarLabel->setPixmap(avaPix);
     }
-    m_avatarLabel->setPixmap(avaPix);
+    // Async load real avatar
+    if (!data.uploaderAvatarPath.isEmpty()) {
+        QString name = data.uploaderName;
+        ImageLoader::instance()->load(data.uploaderAvatarPath, this,
+            [this, name](const QPixmap &pm) {
+                if (m_data.uploaderName == name && !pm.isNull()) {
+                    QPixmap rounded(22, 22);
+                    rounded.fill(Qt::transparent);
+                    QPainter p(&rounded);
+                    p.setRenderHint(QPainter::Antialiasing);
+                    QPainterPath path;
+                    path.addEllipse(0, 0, 22, 22);
+                    p.setClipPath(path);
+                    p.drawPixmap(0, 0, pm.scaled(22, 22, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+                    m_avatarLabel->setPixmap(rounded);
+                }
+            });
+    }
 
     // Stats
     m_statsLabel->setText(QString("%1 · %2").arg(data.playCount, data.publishTime));
