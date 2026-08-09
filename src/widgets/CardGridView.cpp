@@ -6,9 +6,7 @@
 #include <QResizeEvent>
 #include <QPixmap>
 #include <QMouseEvent>
-#include "../network/VideoPlayer.h"
-#include <QDesktopServices>
-#include <QUrl>
+#include "PlayerWindow.h"
 
 static constexpr int CARD_W = 280;
 static constexpr int CARD_GAP = 12;
@@ -34,6 +32,24 @@ CardGridView::CardGridView(QWidget *parent)
     layout->addWidget(m_view);
 
     m_view->viewport()->installEventFilter(this);
+
+    // Refresh button in top-right corner
+    auto *refreshBtn = new QPushButton("↻ 刷新", this);
+    refreshBtn->setFixedSize(72, 30);
+    refreshBtn->setCursor(Qt::PointingHandCursor);
+    refreshBtn->setStyleSheet(R"(
+        QPushButton {
+            background: rgba(251, 114, 153, 0.2);
+            border: 1px solid rgba(251, 114, 153, 0.3);
+            border-radius: 6px;
+            color: #FB7299; font-size: 12px;
+        }
+        QPushButton:hover { background: rgba(251, 114, 153, 0.4); }
+    )");
+    connect(refreshBtn, &QPushButton::clicked, this, &CardGridView::refreshRequested);
+    refreshBtn->move(width() - 84, 8);
+    refreshBtn->raise();
+    refreshBtn->show();
 
     setupScrollToTopButton();
 }
@@ -204,8 +220,10 @@ bool CardGridView::eventFilter(QObject *obj, QEvent *event)
                     if (auto *card = qobject_cast<VideoCard *>(pw->widget())) {
                         QString bvid = card->data().bvid;
                         if (!bvid.isEmpty()) {
-                            auto *player = new VideoPlayer(this);
-                            player->play(bvid);
+                            auto *pw = new PlayerWindow();
+                            pw->setAttribute(Qt::WA_DeleteOnClose);
+                            pw->play(bvid, card->data().title);
+                            pw->show();
                         }
                     }
                 }

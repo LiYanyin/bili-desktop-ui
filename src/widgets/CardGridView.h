@@ -18,6 +18,9 @@ public:
     explicit CardGridView(QWidget *parent = nullptr);
     void setCards(const QList<VideoData> &cards);
 
+signals:
+    void refreshRequested();
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *obj, QEvent *event) override;

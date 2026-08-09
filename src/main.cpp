@@ -62,6 +62,11 @@ static QWidget *createHomePage()
     });
     api->fetchPopular(1, 30);
 
+    // Refresh button
+    QObject::connect(grid, &CardGridView::refreshRequested, grid, [api]() {
+        api->fetchPopular(1, 30);
+    });
+
     return grid;
 }
 
