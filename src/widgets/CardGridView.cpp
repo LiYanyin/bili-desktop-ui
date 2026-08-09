@@ -130,8 +130,6 @@ void CardGridView::layoutCards(bool animate)
     }
     if (viewW <= 0) viewW = 960; // default: 1160 - 200 sidebar
     int usableW = viewW - MARGIN * 2;
-
-    int usableW = viewW - MARGIN * 2;
     int cols = qMax(1, (usableW + CARD_GAP) / (CARD_W + CARD_GAP));
     int cardH = m_entries.first().card->sizeHint().height();
     int rowH = cardH + CARD_GAP;
