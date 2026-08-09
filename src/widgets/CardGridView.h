@@ -42,6 +42,7 @@ private:
     QList<CardEntry> m_entries;
     QVariantAnimation *m_activeAnim = nullptr;
 
+    QWidget *m_overlay = nullptr;
     QPushButton *m_scrollTopBtn = nullptr;
     QPushButton *m_refreshBtn = nullptr;
 };

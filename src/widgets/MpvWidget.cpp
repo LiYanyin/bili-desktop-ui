@@ -11,6 +11,7 @@ MpvWidget::MpvWidget(QWidget *parent) : QWidget(parent)
 {
     setAttribute(Qt::WA_NativeWindow);
     setAttribute(Qt::WA_OpaquePaintEvent);
+    setAttribute(Qt::WA_TransparentForMouseEvents);
     setStyleSheet("background: black;");
 }
 
@@ -40,6 +41,7 @@ void MpvWidget::play(const QString &bvid, const QString &title)
     args << "--referrer=https://www.bilibili.com/"
          << "--keep-open=yes"
          << "--osc=yes"
+         << "--script-opts=osc-visibility=always"
          << "--ytdl-format=bestvideo+bestaudio/best";
 
     if (!title.isEmpty())

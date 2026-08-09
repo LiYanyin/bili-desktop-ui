@@ -1,6 +1,6 @@
 #include "CardGridView.h"
 
-#include <QVBoxLayout>
+#include <QStackedLayout>
 #include <QVariantAnimation>
 #include <QScrollBar>
 #include <QResizeEvent>
@@ -15,8 +15,9 @@ static constexpr int MARGIN = 16;
 CardGridView::CardGridView(QWidget *parent)
     : QWidget(parent)
 {
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
+    // QStackedLayout::StackAll — view + button overlay stacked
+    auto *stack = new QStackedLayout(this);
+    stack->setStackingMode(QStackedLayout::StackAll);
 
     m_scene = new QGraphicsScene(this);
     m_view = new QGraphicsView(m_scene, this);
@@ -28,13 +29,20 @@ CardGridView::CardGridView(QWidget *parent)
     m_view->setBackgroundBrush(Qt::transparent);
     m_view->setStyleSheet("QGraphicsView { background: transparent; border: none; }");
     m_view->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    stack->addWidget(m_view);
 
-    layout->addWidget(m_view);
+    // Overlay layer for buttons — transparent to mouse except on buttons
+    m_overlay = new QWidget(this);
+    m_overlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_overlay->setAttribute(Qt::WA_NoSystemBackground);
+    m_overlay->setAttribute(Qt::WA_TranslucentBackground);
+    stack->addWidget(m_overlay);
 
     m_view->viewport()->installEventFilter(this);
 
     // Refresh button in top-right corner
-    m_refreshBtn = new QPushButton("↻ 刷新", m_view);
+    m_refreshBtn = new QPushButton("↻ 刷新", m_overlay);
+    m_refreshBtn->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     m_refreshBtn->setFixedSize(72, 30);
     m_refreshBtn->setCursor(Qt::PointingHandCursor);
     m_refreshBtn->setStyleSheet(R"(
@@ -53,7 +61,8 @@ CardGridView::CardGridView(QWidget *parent)
 
 void CardGridView::setupScrollToTopButton()
 {
-    m_scrollTopBtn = new QPushButton("▲", m_view);
+    m_scrollTopBtn = new QPushButton("▲", m_overlay);
+    m_scrollTopBtn->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     m_scrollTopBtn->setFixedSize(44, 44);
     m_scrollTopBtn->setCursor(Qt::PointingHandCursor);
     m_scrollTopBtn->setToolTip("回到顶部");
