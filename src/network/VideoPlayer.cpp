@@ -18,32 +18,8 @@ VideoPlayer::VideoPlayer(QObject *parent)
 
 void VideoPlayer::play(const QString &bvid, const QString &title)
 {
-    // Use yt-dlp to get direct stream URL, then pass to mpv
-    auto *proc = new QProcess(this);
-    // yt-dlp -g outputs video+audio URLs for DASH; mpv handles them
-    QStringList args;
-    args << "-g"
-         << ("https://www.bilibili.com/video/" + bvid)
-         << "--referer" << "https://www.bilibili.com/"
-         << "-f" << "bestvideo+bestaudio/best"
-         << "--no-warnings";
-    proc->start("yt-dlp", args);
-
-    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this, proc, title](int exitCode, QProcess::ExitStatus) {
-        proc->deleteLater();
-        if (exitCode != 0) return;
-        QString output = QString::fromUtf8(proc->readAllStandardOutput()).trimmed();
-        QStringList urls = output.split('\n', Qt::SkipEmptyParts);
-        if (urls.isEmpty()) return;
-
-        // Join multiple URLs for DASH (mpv handles --audio-file etc.)
-        // For single URL: direct play. For 2+ URLs: first is video, rest is audio
-        // Pass all URLs to mpv (video + audio for DASH)
-        launchMpv(urls, title);
-    });
-
-    Q_UNUSED(title);
+    // mpv plays B站 URLs directly via its built-in ytdl_hook.lua + yt-dlp
+    launchMpv({QString("https://www.bilibili.com/video/") + bvid}, title);
 }
 
 void VideoPlayer::fetchCid(const QString &bvid)
@@ -133,6 +109,11 @@ void VideoPlayer::fetchPlayUrl(const QString &bvid, int cid)
 void VideoPlayer::launchMpv(const QStringList &urls, const QString &title)
 {
     auto *proc = new QProcess(this);
+    // Ensure yt-dlp is on PATH for mpv's ytdl_hook.lua
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert("PATH", env.value("PATH") + ";C:/Users/19588/anaconda3/Scripts");
+    proc->setProcessEnvironment(env);
+
     QStringList args;
     args << "--referrer=https://www.bilibili.com/"
          << "--force-window=yes"
