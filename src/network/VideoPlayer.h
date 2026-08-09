@@ -17,7 +17,7 @@ public:
 private:
     void fetchCid(const QString &bvid);
     void fetchPlayUrl(const QString &bvid, int cid);
-    void launchMpv(const QString &url, const QString &title);
+    void launchMpv(const QStringList &urls, const QString &title);
 
     QNetworkAccessManager *m_nam;
 };

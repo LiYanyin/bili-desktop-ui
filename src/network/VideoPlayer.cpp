@@ -20,10 +20,12 @@ void VideoPlayer::play(const QString &bvid, const QString &title)
 {
     // Use yt-dlp to get direct stream URL, then pass to mpv
     auto *proc = new QProcess(this);
+    // yt-dlp -g outputs video+audio URLs for DASH; mpv handles them
     QStringList args;
-    args << "-g" << ("https://www.bilibili.com/video/" + bvid)
+    args << "-g"
+         << ("https://www.bilibili.com/video/" + bvid)
          << "--referer" << "https://www.bilibili.com/"
-         << "-f" << "b"
+         << "-f" << "bestvideo+bestaudio/best"
          << "--no-warnings";
     proc->start("yt-dlp", args);
 
@@ -31,9 +33,14 @@ void VideoPlayer::play(const QString &bvid, const QString &title)
             this, [this, proc, title](int exitCode, QProcess::ExitStatus) {
         proc->deleteLater();
         if (exitCode != 0) return;
-        QString url = QString::fromUtf8(proc->readAllStandardOutput()).trimmed();
-        if (!url.isEmpty())
-            launchMpv(url, title);
+        QString output = QString::fromUtf8(proc->readAllStandardOutput()).trimmed();
+        QStringList urls = output.split('\n', Qt::SkipEmptyParts);
+        if (urls.isEmpty()) return;
+
+        // Join multiple URLs for DASH (mpv handles --audio-file etc.)
+        // For single URL: direct play. For 2+ URLs: first is video, rest is audio
+        // Pass all URLs to mpv (video + audio for DASH)
+        launchMpv(urls, title);
     });
 
     Q_UNUSED(title);
@@ -118,25 +125,21 @@ void VideoPlayer::fetchPlayUrl(const QString &bvid, int cid)
         if (!videoUrl.isEmpty()) {
             if (videoUrl.startsWith("http://"))
                 videoUrl.replace(0, 4, "https");
-            launchMpv(videoUrl, {});
+            launchMpv(QStringList{videoUrl}, {});
         }
     });
 }
 
-void VideoPlayer::launchMpv(const QString &url, const QString &title)
+void VideoPlayer::launchMpv(const QStringList &urls, const QString &title)
 {
-    QFile f("F:/project/bili-desktop-ui/playback.log");
-    if (f.open(QIODevice::Append))
-        f.write(qPrintable("launchMpv: " + url.left(80) + "...\n"));
-
     auto *proc = new QProcess(this);
     QStringList args;
     args << "--referrer=https://www.bilibili.com/"
          << "--force-window=yes"
-         << "--keep-open=yes"
-         << url;
+         << "--keep-open=yes";
     if (!title.isEmpty())
         args << ("--title=" + title);
+    args << urls;
 
     proc->start(MPV_PATH, args);
 }
