@@ -34,22 +34,19 @@ CardGridView::CardGridView(QWidget *parent)
     m_view->viewport()->installEventFilter(this);
 
     // Refresh button in top-right corner
-    auto *refreshBtn = new QPushButton("↻ 刷新", this);
-    refreshBtn->setFixedSize(72, 30);
-    refreshBtn->setCursor(Qt::PointingHandCursor);
-    refreshBtn->setStyleSheet(R"(
+    m_refreshBtn = new QPushButton("↻ 刷新", this);
+    m_refreshBtn->setFixedSize(72, 30);
+    m_refreshBtn->setCursor(Qt::PointingHandCursor);
+    m_refreshBtn->setStyleSheet(R"(
         QPushButton {
-            background: rgba(251, 114, 153, 0.2);
+            background: rgba(251, 114, 153, 0.25);
             border: 1px solid rgba(251, 114, 153, 0.3);
             border-radius: 6px;
             color: #FB7299; font-size: 12px;
         }
-        QPushButton:hover { background: rgba(251, 114, 153, 0.4); }
+        QPushButton:hover { background: rgba(251, 114, 153, 0.5); }
     )");
-    connect(refreshBtn, &QPushButton::clicked, this, &CardGridView::refreshRequested);
-    refreshBtn->move(width() - 84, 8);
-    refreshBtn->raise();
-    refreshBtn->show();
+    connect(m_refreshBtn, &QPushButton::clicked, this, &CardGridView::refreshRequested);
 
     setupScrollToTopButton();
 }
@@ -132,6 +129,10 @@ void CardGridView::resizeEvent(QResizeEvent *event)
     if (m_scrollTopBtn) {
         m_scrollTopBtn->move(width() - 64, height() - 64);
         m_scrollTopBtn->raise();
+    }
+    if (m_refreshBtn) {
+        m_refreshBtn->move(width() - 84, 8);
+        m_refreshBtn->raise();
     }
     layoutCards(true);
 }

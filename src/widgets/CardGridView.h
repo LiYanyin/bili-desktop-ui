@@ -43,4 +43,5 @@ private:
     QVariantAnimation *m_activeAnim = nullptr;
 
     QPushButton *m_scrollTopBtn = nullptr;
+    QPushButton *m_refreshBtn = nullptr;
 };

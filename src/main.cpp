@@ -95,6 +95,11 @@ int main(int argc, char *argv[])
     )");
 
     crashLog("MainWindow...");
+    // App icon — B站 pink square
+    QPixmap iconPix(32, 32);
+    iconPix.fill(QColor("#FB7299"));
+    app.setWindowIcon(QIcon(iconPix));
+
     MainWindow window;
     window.setWindowTitle("Bili Desktop");
 
