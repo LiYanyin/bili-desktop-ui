@@ -7,6 +7,8 @@
 #include <QPixmap>
 #include <QMouseEvent>
 #include "../network/VideoPlayer.h"
+#include <QDesktopServices>
+#include <QUrl>
 
 static constexpr int CARD_W = 280;
 static constexpr int CARD_GAP = 12;

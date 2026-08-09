@@ -5,6 +5,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QUrlQuery>
+#include <QFile>
+#include <QDebug>
 
 static const QString MPV_PATH = "C:/Program Files/MPV Player/mpv.exe";
 
@@ -16,8 +18,25 @@ VideoPlayer::VideoPlayer(QObject *parent)
 
 void VideoPlayer::play(const QString &bvid, const QString &title)
 {
-    fetchCid(bvid);
-    Q_UNUSED(title); // passed to mpv later
+    // Use yt-dlp to get direct stream URL, then pass to mpv
+    auto *proc = new QProcess(this);
+    QStringList args;
+    args << "-g" << ("https://www.bilibili.com/video/" + bvid)
+         << "--referer" << "https://www.bilibili.com/"
+         << "-f" << "b"
+         << "--no-warnings";
+    proc->start("yt-dlp", args);
+
+    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this, proc, title](int exitCode, QProcess::ExitStatus) {
+        proc->deleteLater();
+        if (exitCode != 0) return;
+        QString url = QString::fromUtf8(proc->readAllStandardOutput()).trimmed();
+        if (!url.isEmpty())
+            launchMpv(url, title);
+    });
+
+    Q_UNUSED(title);
 }
 
 void VideoPlayer::fetchCid(const QString &bvid)
@@ -34,17 +53,24 @@ void VideoPlayer::fetchCid(const QString &bvid)
     QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, bvid]() {
         reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) return;
-
-        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QFile f("F:/project/bili-desktop-ui/playback.log");
+        auto log = [&f](const QString &s) {
+            if (f.open(QIODevice::Append)) f.write(qPrintable(s + "\n"));
+        };
+        if (reply->error() != QNetworkReply::NoError) {
+            log("fetchCid error: " + reply->errorString());
+            return;
+        }
+        QByteArray data = reply->readAll();
+        log("fetchCid got " + QString::number(data.size()) + " bytes");
+        QJsonDocument doc = QJsonDocument::fromJson(data);
         QJsonObject root = doc.object();
+        log("fetchCid code=" + QString::number(root["code"].toInt()));
         if (root["code"].toInt() != 0) return;
-
         QJsonArray pages = root["data"].toObject()["pages"].toArray();
-        if (pages.isEmpty()) return;
-
+        if (pages.isEmpty()) { log("fetchCid: no pages"); return; }
         int cid = pages[0].toObject()["cid"].toInt();
-        QString title = root["data"].toObject()["title"].toString();
+        log("fetchCid cid=" + QString::number(cid));
         fetchPlayUrl(bvid, cid);
     });
 }
@@ -68,18 +94,28 @@ void VideoPlayer::fetchPlayUrl(const QString &bvid, int cid)
     QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) return;
-
-        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QFile f("F:/project/bili-desktop-ui/playback.log");
+        auto log = [&f](const QString &s) {
+            if (f.open(QIODevice::Append)) f.write(qPrintable(s + "\n"));
+        };
+        if (reply->error() != QNetworkReply::NoError) {
+            log("fetchPlayUrl error: " + reply->errorString());
+            return;
+        }
+        QByteArray data = reply->readAll();
+        log("fetchPlayUrl got " + QString::number(data.size()) + " bytes: " + QString::fromUtf8(data));
+        QJsonDocument doc = QJsonDocument::fromJson(data);
         QJsonObject root = doc.object();
-        if (root["code"].toInt() != 0) return;
-
+        log("fetchPlayUrl code=" + QString::number(root["code"].toInt()));
+        if (root["code"].toInt() != 0) {
+            log("fetchPlayUrl msg: " + root["message"].toString());
+            return;
+        }
         QJsonArray durl = root["data"].toObject()["durl"].toArray();
-        if (durl.isEmpty()) return;
-
+        if (durl.isEmpty()) { log("fetchPlayUrl: no durl"); return; }
         QString videoUrl = durl[0].toObject()["url"].toString();
+        log("fetchPlayUrl url=" + videoUrl.left(80) + "...");
         if (!videoUrl.isEmpty()) {
-            // Ensure HTTPS
             if (videoUrl.startsWith("http://"))
                 videoUrl.replace(0, 4, "https");
             launchMpv(videoUrl, {});
@@ -89,14 +125,16 @@ void VideoPlayer::fetchPlayUrl(const QString &bvid, int cid)
 
 void VideoPlayer::launchMpv(const QString &url, const QString &title)
 {
-    auto *proc = new QProcess(this);
+    QFile f("F:/project/bili-desktop-ui/playback.log");
+    if (f.open(QIODevice::Append))
+        f.write(qPrintable("launchMpv: " + url.left(80) + "...\n"));
 
+    auto *proc = new QProcess(this);
     QStringList args;
     args << "--referrer=https://www.bilibili.com/"
          << "--force-window=yes"
          << "--keep-open=yes"
          << url;
-
     if (!title.isEmpty())
         args << ("--title=" + title);
 
